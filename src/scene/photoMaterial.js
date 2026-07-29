@@ -22,7 +22,7 @@ const VERTEX = /* glsl */ `
     vec3 p = position;
     // geometric flex: the WHOLE card (image + outline as one) bows
     // along its height with the travel velocity
-    p.z += sin(uv.y * 3.1415926) * uVel * 0.16;
+    p.z += sin(uv.y * 3.1415926) * uVel * 0.26;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
   }
 `;
