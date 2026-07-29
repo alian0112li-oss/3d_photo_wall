@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Reflector } from 'three/addons/objects/Reflector.js';
-import { WALL, SCENE } from '../config.js';
+import { WALL, WHEEL, SCENE } from '../config.js';
 
 /**
  * Scene atmosphere: lights, reflective floor, grid tint and ambient particles.
@@ -24,10 +24,13 @@ export function createEnvironment({ scene, rig }) {
   scene.add(rimPink);
 
   // ---- reflective floor (parented to the rig) ----
+  // low enough that the wall clears it even at the start of its travel
+  // (the wall group begins offset -TRAVEL/2 and climbs as the user scrolls)
   const floorY =
     -(((WALL.ROWS - 1) / 2) * WALL.ROW_GAP +
       (WALL.PHOTO_H + WALL.FRAME_BORDER) / 2 +
-      SCENE.FLOOR_GAP);
+      SCENE.FLOOR_GAP +
+      WHEEL.TRAVEL / 2);
 
   const dpr = Math.min(window.devicePixelRatio, 2);
   const mirror = new Reflector(new THREE.CircleGeometry(40, 80), {

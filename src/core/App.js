@@ -69,7 +69,7 @@ export class App {
     this.scene.background = new THREE.Color(SCENE.BACKGROUND);
     this.scene.fog = new THREE.FogExp2(SCENE.BACKGROUND, SCENE.FOG_DENSITY);
 
-    // the rig sinks as the wheel scrolls; wall + floor ride on it
+    // static rig holding floor + wall; only the wall group travels
     this.rig = new THREE.Group();
     this.scene.add(this.rig);
 
@@ -151,9 +151,11 @@ export class App {
       this.drag.value + p * WHEEL.TURNS * Math.PI * 2 + this.parallaxSm.x * MOTION.MAGNET_YAW;
     this.wall.group.rotation.x = -this.parallaxSm.y * MOTION.MAGNET_PITCH;
 
-    // ---- rig: idle bob + wheel-driven descent ----
-    const bob = rm ? 0 : Math.sin(t * 0.4) * 0.15;
-    this.rig.position.y = bob - p * WHEEL.TRAVEL;
+    // ---- travel: natural scrolling — wheel down, wall climbs upward ----
+    // starts at -TRAVEL/2 (top ring centred) and ends at +TRAVEL/2
+    // (bottom ring centred), browsing ring by ring
+    const bob = rm ? 0 : Math.sin(t * 0.4) * MOTION.BOB_AMP;
+    this.wall.group.position.y = bob + (p - 0.5) * WHEEL.TRAVEL;
 
     // ---- cards: hover magnetism, lift, float ----
     if (s.focused) this._updateFocusTargets();

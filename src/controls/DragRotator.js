@@ -38,7 +38,8 @@ export class DragRotator {
       this.lastX = e.clientX;
       this.lastY = e.clientY;
       this.target += dx;
-      this.velocity = dx;
+      // clamp fling strength so a fast flick can't send the wall drifting
+      this.velocity = Math.max(-0.035, Math.min(0.035, dx));
       onVertical?.(dy);
     });
 
@@ -54,7 +55,7 @@ export class DragRotator {
   update(dt, { autoSpeed = 0 } = {}) {
     if (!this.dragging) {
       this.target += this.velocity;                 // inertia glide
-      this.velocity *= Math.pow(0.0025, dt);        // frame-rate independent decay
+      this.velocity *= Math.pow(0.00005, dt);       // brisk decay — settles fast, no drift
       this.target += autoSpeed * dt;                // idle auto-rotation
     }
     this.value = MathUtils.damp(this.value, this.target, MOTION.DRAG_DAMP, dt);

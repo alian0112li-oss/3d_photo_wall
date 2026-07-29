@@ -7,8 +7,8 @@
 | 能力 | 说明 |
 | --- | --- |
 | 真 3D 卡片 | BoxGeometry 厚度边框 + 正面照片 + 背面品牌背板，背面不镂空 |
-| 滚轮下潜 | 滚轮驱动虚拟滚动（页面本身不滚动）：墙体随进度旋转下沉，边界带橡皮筋回弹 |
-| 黏性拖拽 | 墙体略微滞后于手的拖拽（阻尼追赶），松手后惯性滑行衰减 |
+| 滚轮逐层浏览 | 自然滚动方向：滚轮向下，墙体向上攀升并旋转（顶层 → 中层 → 底层逐层居中），边界带橡皮筋回弹 |
+| 黏性拖拽 | 墙体略微滞后于手的拖拽（阻尼追赶），松手后短促惯性滑行、迅速落定 |
 | 磁性跟随 | 墙体朝指针方向轻微偏转俯仰；悬停卡片朝光标位置磁性倾斜、浮起、放大 |
 | 点击聚焦 | 镜头阻尼飞行至照片正前方，`Esc` / 点空白 / 滚轮释放 |
 | 呼吸浮动 | 每张卡片按独立相位轻微浮动，整墙缓慢起伏 |
@@ -23,7 +23,7 @@
 ```
 输入层（事件）                运动层（每帧）
 ─────────────                ───────────────────────────────
-wheel   ──► wheel.target ──► wheel.value  = damp(value, target)   ← 粘滞下潜
+wheel   ──► wheel.target ──► wheel.value  = damp(value, target)   ← 粘滞攀升
 drag    ──► drag.target  ──► drag.value   = damp(value, target)   ← 黏性滞后 + 惯性
 pointer ──► parallax     ──► parallaxSm   = damp(sm, raw)         ← 磁性跟随
 hover   ──► tilt/lift 目标 ─► damp 追赶                            ← 卡片磁吸
@@ -99,12 +99,12 @@ python scripts/generate_images.py --count 40 --size 600 800
 | --- | --- | --- |
 | `WALL.TOTAL / COLS / ROWS` | 照片数 / 每层列数 / 层数 | `30 / 10 / 3` |
 | `WALL.RADIUS` | 圆柱半径 | `8.2` |
-| `WHEEL.TRAVEL` | 滚轮全程下潜深度 | `8.5` |
-| `WHEEL.TURNS` | 滚轮全程旋转圈数 | `1.15` |
-| `MOTION.WHEEL_DAMP` | 下潜阻尼（越小越沉重） | `3.6` |
-| `MOTION.DRAG_DAMP` | 拖拽黏性（越小滞后越明显） | `5.0` |
+| `WHEEL.TRAVEL` | 滚轮全程垂直行程（= 2 × 层距） | `7.4` |
+| `WHEEL.TURNS` | 滚轮全程旋转圈数 | `1.0` |
+| `MOTION.WHEEL_DAMP` | 攀升阻尼（越小越沉重） | `5.5` |
+| `MOTION.DRAG_DAMP` | 拖拽黏性（越小滞后越明显） | `8.5` |
 | `MOTION.CARD_TILT / CARD_LIFT` | 悬停磁吸倾角 / 浮起距离 | `0.22 / 0.35` |
-| `MOTION.MAGNET_YAW / MAGNET_PITCH` | 墙体指针磁性偏转幅度 | `0.09 / 0.045` |
+| `MOTION.MAGNET_YAW / MAGNET_PITCH` | 墙体指针磁性偏转幅度 | `0.05 / 0.028` |
 
 ## 🛠️ 技术栈
 
