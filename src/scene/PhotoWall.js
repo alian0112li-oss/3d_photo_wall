@@ -1,15 +1,15 @@
 import * as THREE from 'three';
 import { WALL, MOTION, imageUrl } from '../config.js';
-import { createBackCoverTexture, createFallbackTexture } from './textures.js';
+import { createFallbackTexture } from './textures.js';
 
 const { damp } = THREE.MathUtils;
 
 /**
  * Cylindrical wall of true-3D photo cards.
  *
- * Each card = thick box frame (metallic) + photo plane on the front
- * + shared branded cover on the back, so the wall reads as a real object
- * from every angle.
+ * Each card = thick box frame (metallic) + the SAME photo on both faces
+ * (the rear plane is rotated 180°, not mirrored), so wherever a card
+ * travels you always see the photo right-side-up — there is no "back".
  *
  * Motion: every card owns damped state (scale / lift / magnetic tilt /
  * idle float). Hover only sets *targets*; `update()` chases them each
@@ -29,12 +29,7 @@ export class PhotoWall {
     // shared resources
     const frameGeo = new THREE.BoxGeometry(W + B, H + B, D);
     const photoGeo = new THREE.PlaneGeometry(W, H);
-    const backGeo = new THREE.PlaneGeometry(W + B * 0.55, H + B * 0.55);
     const frameMat = new THREE.MeshStandardMaterial({ color: 0x11131f, metalness: 0.65, roughness: 0.32 });
-
-    const backTex = createBackCoverTexture();
-    backTex.anisotropy = maxAnisotropy;
-    const backMat = new THREE.MeshBasicMaterial({ map: backTex, toneMapped: false });
 
     const loader = new THREE.TextureLoader(manager);
     const step = (Math.PI * 2) / COLS;
@@ -73,10 +68,12 @@ export class PhotoWall {
       photo.userData.card = card;
       card.add(photo);
 
-      // branded back cover
-      const back = new THREE.Mesh(backGeo, backMat);
+      // rear face: the same photo, rotated (not mirrored) — the card shows
+      // the photo right-side-up from behind as well
+      const back = new THREE.Mesh(photoGeo, photoMat);
       back.position.z = -(D / 2 + 0.01);
       back.rotation.y = Math.PI;
+      back.userData.card = card;
       card.add(back);
 
       loader.load(
@@ -88,7 +85,7 @@ export class PhotoWall {
 
       this.group.add(card);
       this.cards.push(card);
-      this.pickables.push(photo);
+      this.pickables.push(photo, back); // both faces are hoverable/clickable
     }
   }
 

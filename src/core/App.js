@@ -42,6 +42,7 @@ export class App {
     this._wp = new THREE.Vector3();
     this._wq = new THREE.Quaternion();
     this._wn = new THREE.Vector3();
+    this._tmp = new THREE.Vector3();
 
     this._initRenderer();
     this._initScene();
@@ -123,6 +124,9 @@ export class App {
     card.getWorldPosition(this._wp);
     card.getWorldQuaternion(this._wq);
     this._wn.set(0, 0, 1).applyQuaternion(this._wq);
+    // both faces show the photo — approach from whichever side the camera is on
+    this._tmp.copy(this.camera.position).sub(this._wp);
+    if (this._wn.dot(this._tmp) < 0) this._wn.negate();
     this.camPos.copy(this._wp).addScaledVector(this._wn, CAMERA.FOCUS_DISTANCE);
     this.camPos.y += 0.15;
     this.camLook.copy(this._wp);
