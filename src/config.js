@@ -5,8 +5,8 @@
 
 /** Photo wall layout (cylindrical array of 3D cards). */
 export const WALL = {
-  TOTAL: 30,        // number of photos (matches scripts/generate_images.py)
-  COLS: 10,         // cards per ring
+  TOTAL: 36,        // number of photos (matches scripts/generate_images.py)
+  COLS: 12,         // cards per ring
   ROWS: 3,          // stacked rings
   RADIUS: 12,       // cylinder radius (larger -> wider horizontal gaps)
   PHOTO_W: 2.4,     // photo width  (world units)
@@ -55,7 +55,7 @@ export const SCENE = {
   BACKGROUND: 0x0a0b14,
   FOG_DENSITY: 0.017, // light enough that far-side photos stay readable
   FLOOR_GAP: 0.7,          // gap between lowest card edge and the mirror floor
-  AUTO_ROTATE_SPEED: 0.16, // rad/s constant spin (independent of the wheel)
+  AUTO_ROTATE_SPEED: 0.08, // rad/s constant spin (independent of the wheel)
 };
 
 /** Resolve a photo URL (works in dev and on GitHub Pages). */

@@ -6,6 +6,7 @@
 
 | 能力 | 说明 |
 | --- | --- |
+| 开屏入场动画 | 扑克牌式发牌：照片逐张掉落到屏幕中央、一张压一张堆叠，最后落下一张黑卡；随后黑卡经 **FLIP**（First → Last → Invert → Play）瞬间转化为全屏"视口遮罩层"，盖屏同时同步切换底层排版，再淡出揭示 3D 墙 |
 | 双面照片卡片 | BoxGeometry 厚度边框，正反两面都是照片正像（旋转非镜像），没有"背面" |
 | 恒速自转 | 墙体持续匀速旋转陈列，转速与滚轮完全解耦，滚动不改变转速 |
 | 滚轮逐层浏览 | 自然滚动方向：滚轮向下，墙体向上攀升（顶层 → 中层 → 底层逐层居中），边界带橡皮筋回弹 |
@@ -13,7 +14,8 @@
 | 呼吸浮动 | 每张卡片按独立相位轻微浮动，整墙缓慢起伏 |
 | 氛围渲染 | 反射地面（Reflector）、指数雾、粒子星尘、多彩轮廓光、ACES 色调映射 |
 | 工程化 | Vite 构建、模块化分层、集中配置、CI 自动部署 GitHub Pages |
-| 可访问性 | 遵循 `prefers-reduced-motion`：自转 / 浮动自动关闭 |
+| 可访问性 | 遵循 `prefers-reduced-motion`：跳过入场动画，自转 / 浮动自动关闭 |
+| 健壮性 | 入场动画每一阶段都有超时兜底，标签页失焦 / 事件丢失也不会卡死 |
 
 ## 🧲 运动系统（丝滑手感的来源）
 
@@ -76,10 +78,11 @@ python scripts/generate_images.py --count 40 --size 600 800
 ├── public/
 │   └── images/                 # 照片资源（构建时原样拷贝）
 └── src/
-    ├── main.js                 # 入口
+    ├── main.js                 # 入口（挂载 App 与开屏动画）
     ├── config.js               # ★ 布局 / 运动手感参数集中于此
     ├── styles/main.css
     ├── core/App.js             # 编排器：渲染循环、自转积分、行程合成
+    ├── intro/Intro.js          # 开屏：发牌堆叠 -> FLIP 视口遮罩 -> 揭示
     ├── scene/
     │   ├── PhotoWall.js        # 圆柱阵列双面照片卡片 + 呼吸浮动
     │   ├── environment.js      # 灯光、反射地面、网格、粒子
@@ -92,13 +95,13 @@ python scripts/generate_images.py --count 40 --size 600 800
 
 | 参数 | 含义 | 默认 |
 | --- | --- | --- |
-| `WALL.TOTAL / COLS / ROWS` | 照片数 / 每层列数 / 层数 | `30 / 10 / 3` |
+| `WALL.TOTAL / COLS / ROWS` | 照片数 / 每层列数 / 层数 | `36 / 12 / 3` |
 | `WALL.RADIUS` | 圆柱半径（越大水平间隔越宽） | `12` |
 | `WALL.ROW_GAP` | 层距（越大垂直间隔越宽） | `6.0` |
 | `WHEEL.TRAVEL` | 滚轮全程垂直行程（= 2 × 层距） | `12` |
 | `CAMERA.POSITION` | 相机位置（z 越小离墙越近） | `[0, 1.4, 19.5]` |
 | `MOTION.WHEEL_DAMP` | 攀升阻尼（越小越沉重） | `5.5` |
-| `SCENE.AUTO_ROTATE_SPEED` | 自转角速度（rad/s，与滚轮无关） | `0.16` |
+| `SCENE.AUTO_ROTATE_SPEED` | 自转角速度（rad/s，与滚轮无关） | `0.08` |
 
 ## 🛠️ 技术栈
 

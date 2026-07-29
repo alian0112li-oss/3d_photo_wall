@@ -17,11 +17,13 @@ export class WheelScroller {
   constructor() {
     this.target = 0;
     this.value = 0;
+    this.enabled = false; // input stays inert until the intro finishes
 
     window.addEventListener(
       'wheel',
       (e) => {
         e.preventDefault();
+        if (!this.enabled) return;
         // deltaMode 1 = lines (Firefox); normalize to pixels
         const delta = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
         this.target += delta * WHEEL.SENSITIVITY;
@@ -35,7 +37,7 @@ export class WheelScroller {
       lastY = e.touches[0].clientY;
     }, { passive: true });
     window.addEventListener('touchmove', (e) => {
-      if (lastY === null) return;
+      if (lastY === null || !this.enabled) return;
       const y = e.touches[0].clientY;
       this.target += (lastY - y) * WHEEL.SENSITIVITY * 2.4;
       lastY = y;

@@ -70,9 +70,20 @@ export class App {
       barFill.style.width = `${Math.round((loaded / total) * 100)}%`;
       label.textContent = `正在加载照片 ${loaded}/${total}…`;
     };
-    this.manager.onLoad = () => overlay.classList.add('hidden');
-    // safety net: never leave the overlay stuck
-    setTimeout(() => overlay.classList.add('hidden'), 8000);
+    /** Resolves when all textures are in (8s safety net) — the intro awaits this. */
+    this.ready = new Promise((resolve) => {
+      const done = () => {
+        overlay.classList.add('hidden');
+        resolve();
+      };
+      this.manager.onLoad = done;
+      setTimeout(done, 8000);
+    });
+  }
+
+  /** Called when the intro's mask covers the screen (or when skipping it). */
+  enableInput() {
+    this.wheel.enabled = true;
   }
 
   _onResize() {
