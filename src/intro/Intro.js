@@ -21,7 +21,9 @@ import { imageUrl } from '../config.js';
 
 const FALL_COUNT = 10;      // photo cards before the black cap
 const FALL_INTERVAL = 170;  // ms between drops
-const FALL_DURATION = 780;  // ms per drop
+const FALL_DURATION = 820;  // ms per drop
+const ZOOM_SCALE = 1.1;     // the photo grows inside its fixed frame...
+const ZOOM_DURATION = 420;  // ...briefly, as the card arrives
 const EXPAND_DURATION = 720;
 const FADE_DURATION = 700;
 
@@ -73,24 +75,38 @@ export class Intro {
     stack.appendChild(black);
     cards.push(black);
 
-    // deal the deck — every card falls straight down onto the same
-    // centred spot, fading in on the way so each drop stays visible
+    // deal the deck — every card falls straight down from above the
+    // viewport onto the same centred spot. It stays fully opaque the
+    // whole way, so you can see exactly where each card comes from.
     const settle = 'translate(-50%, -50%) scale(1)';
     const drops = cards.map((el, i) => {
       el.style.zIndex = String(10 + i); // one pressing on another
       const anim = el.animate(
         [
-          { transform: 'translate(-50%, calc(-50% - 58vh)) scale(1.05)', opacity: 0, offset: 0 },
-          { opacity: 1, offset: 0.32 },
-          { transform: settle, opacity: 1, offset: 1 },
+          // parked fully above the top edge — enters the screen visibly
+          { transform: 'translate(-50%, calc(-50% - 72vh)) scale(1.02)', opacity: 1 },
+          { transform: settle, opacity: 1 },
         ],
         {
           duration: FALL_DURATION,
           delay: i * FALL_INTERVAL,
-          easing: 'cubic-bezier(0.22, 1, 0.36, 1)', // long soft deceleration
+          easing: 'cubic-bezier(0.5, 0, 0.15, 1)', // gravity in, soft landing
           fill: 'both',
         }
       );
+      // the photo grows briefly inside its fixed frame as the card arrives
+      const img = el.querySelector('img');
+      if (img) {
+        img.animate(
+          [{ transform: 'scale(1)' }, { transform: `scale(${ZOOM_SCALE})` }],
+          {
+            duration: ZOOM_DURATION,
+            delay: i * FALL_INTERVAL + 180,
+            easing: 'ease-out',
+            fill: 'both',
+          }
+        );
+      }
       return anim.finished
         .catch(() => {})
         .then(() => {
@@ -117,6 +133,9 @@ export class Intro {
     const first = black.getBoundingClientRect();
 
     black.classList.add('as-mask');    // Last: fixed, inset 0 — instant layout change
+    black.style.transform = 'none';    // drop the settle transform, else the Last rect
+                                       // is shifted by -50% and the mask appears to
+                                       // grow from the bottom-right instead of centre
     this.root.appendChild(black);      // survives the stack's removal
     const last = black.getBoundingClientRect();
 

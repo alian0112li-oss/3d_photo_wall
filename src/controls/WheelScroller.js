@@ -19,6 +19,7 @@ export class WheelScroller {
     this.value = 0;
     this.enabled = false;     // input stays inert until the intro finishes
     this.lastInput = -Infinity; // timestamp of the latest wheel/touch input
+    this.lastDir = 1;           // +1 wheel-down / -1 wheel-up — spin follows this while scrolling
 
     window.addEventListener(
       'wheel',
@@ -29,6 +30,7 @@ export class WheelScroller {
         const delta = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
         this.target += delta * WHEEL.SENSITIVITY;
         this.lastInput = performance.now();
+        if (delta) this.lastDir = delta > 0 ? 1 : -1;
       },
       { passive: false }
     );
@@ -41,8 +43,10 @@ export class WheelScroller {
     window.addEventListener('touchmove', (e) => {
       if (lastY === null || !this.enabled) return;
       const y = e.touches[0].clientY;
-      this.target += (lastY - y) * WHEEL.SENSITIVITY * 2.4;
+      const delta = lastY - y;
+      this.target += delta * WHEEL.SENSITIVITY * 2.4;
       this.lastInput = performance.now();
+      if (delta) this.lastDir = delta > 0 ? 1 : -1;
       lastY = y;
     }, { passive: true });
     window.addEventListener('touchend', () => { lastY = null; });

@@ -124,12 +124,13 @@ export class App {
     // wheel chases its target (damped travel + rubber-band edges)
     this.wheel.update(dt);
 
-    // spin speed: scrolling > hover > base, blended smoothly (no hard steps)
+    // spin speed: scrolling > hover > base, blended smoothly (no hard steps);
+    // while scrolling the spin direction follows the scroll direction
     this._hovering = this._checkHover();
     const tier = this.reduceMotion
       ? 0
       : this.wheel.isActive(SPIN.SCROLL_HOLD)
-        ? SPIN.SCROLL
+        ? SPIN.SCROLL * this.wheel.lastDir
         : this._hovering
           ? SPIN.HOVER
           : SPIN.BASE;

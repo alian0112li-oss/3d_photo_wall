@@ -56,7 +56,8 @@ export const MOTION = {
  *
  *   BASE   0.14  normal display spin
  *   HOVER  0.05  pointer resting on a photo -> slows for viewing
- *   SCROLL 0.19  while the wheel is scrolling -> a touch faster than BASE
+ *   SCROLL 0.19  while the wheel is scrolling -> a touch faster than BASE;
+ *                the sign follows the scroll direction (wheel up reverses)
  *
  * Priority: SCROLL > HOVER > BASE. DAMP controls how quickly the speed
  * eases between tiers; SCROLL_HOLD is how long after the last wheel
