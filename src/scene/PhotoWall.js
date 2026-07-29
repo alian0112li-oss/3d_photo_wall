@@ -9,13 +9,15 @@ import { createFallbackTexture } from './textures.js';
  * (the rear plane is rotated 180°, not mirrored), so wherever a card
  * travels you always see the photo right-side-up — there is no "back".
  *
- * The wall is display-only: it takes no pointer input. The only per-card
- * animation is a gentle idle float on an individual phase.
+ * The wall never moves in response to the pointer; `pickables` exists
+ * only so the app can detect "pointer over a photo" and slow the spin.
+ * The only per-card animation is a gentle idle float on an individual phase.
  */
 export class PhotoWall {
   constructor({ manager, maxAnisotropy = 1 } = {}) {
     this.group = new THREE.Group();
     this.cards = [];
+    this.pickables = []; // photo faces, raycast solely for hover speed control
 
     const { TOTAL, COLS, ROWS, RADIUS, PHOTO_W: W, PHOTO_H: H, ROW_GAP, FRAME_BORDER: B, CARD_DEPTH: D } = WALL;
 
@@ -65,6 +67,7 @@ export class PhotoWall {
 
       this.group.add(card);
       this.cards.push(card);
+      this.pickables.push(photo, back);
     }
   }
 

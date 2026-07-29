@@ -1,31 +1,29 @@
 import { imageUrl } from '../config.js';
 
 /**
- * Opening sequence:
+ * Opening sequence (white backdrop):
  *
- * 1. Cards drop one by one into the centre of the screen like a poker
- *    deck being dealt — each lands on top of the previous (rising
- *    z-index, random tilt/jitter), the last card is pure black.
+ * 1. Cards drop one by one onto the exact centre of the screen, each
+ *    perfectly straight and stacking on top of the previous (rising
+ *    z-index) — a neat deck, not a scatter. Every card fades in as it
+ *    falls so the motion reads clearly against the white backdrop.
+ *    The last card is pure black — the only black element on the page.
  * 2. FLIP viewport fill: the black card — an ordinary card in the stack
  *    flow — is instantly converted into a fixed, fullscreen "viewport
  *    mask layer" (First -> Last layout change), inverted back onto its
  *    old rect with a transform so nothing appears to move, then played
- *    so it expands to fill the viewport.
+ *    so it expands to fill the viewport. That expansion is the moment
+ *    the page turns black.
  * 3. While the mask covers the screen the underlying layout is switched
- *    (stack removed, 3D wall input enabled), then the mask lifts.
+ *    (stack removed, 3D wall input enabled), then the mask lifts to
+ *    reveal the dark scene.
  */
 
 const FALL_COUNT = 10;      // photo cards before the black cap
-const FALL_INTERVAL = 190;  // ms between drops
-const FALL_DURATION = 640;  // ms per drop
+const FALL_INTERVAL = 170;  // ms between drops
+const FALL_DURATION = 780;  // ms per drop
 const EXPAND_DURATION = 720;
 const FADE_DURATION = 700;
-
-/** Deterministic pseudo-random in [0, 1) so the pile looks the same every visit. */
-const rand = (seed) => {
-  const x = Math.sin(seed * 999) * 10000;
-  return x - Math.floor(x);
-};
 
 const withTimeout = (promise, ms) =>
   Promise.race([promise, new Promise((res) => setTimeout(res, ms))]);
@@ -75,23 +73,21 @@ export class Intro {
     stack.appendChild(black);
     cards.push(black);
 
-    // deal the deck — each card falls from above and lands on the pile
+    // deal the deck — every card falls straight down onto the same
+    // centred spot, fading in on the way so each drop stays visible
+    const settle = 'translate(-50%, -50%) scale(1)';
     const drops = cards.map((el, i) => {
-      const isBlack = i === cards.length - 1;
-      const rot = isBlack ? 0 : rand(i) * 24 - 12;        // deg tilt on landing
-      const jx = isBlack ? 0 : rand(i + 40) * 26 - 13;    // px jitter
-      const jy = isBlack ? 0 : rand(i + 80) * 18 - 9;
-      el.style.zIndex = String(10 + i);                    // one pressing on another
-      const settle = `translate(calc(-50% + ${jx}px), calc(-50% + ${jy}px)) rotate(${rot}deg)`;
+      el.style.zIndex = String(10 + i); // one pressing on another
       const anim = el.animate(
         [
-          { transform: `translate(calc(-50% + ${jx}px), -170vh) rotate(${rot - 14}deg)` },
-          { transform: settle },
+          { transform: 'translate(-50%, calc(-50% - 58vh)) scale(1.05)', opacity: 0, offset: 0 },
+          { opacity: 1, offset: 0.32 },
+          { transform: settle, opacity: 1, offset: 1 },
         ],
         {
           duration: FALL_DURATION,
           delay: i * FALL_INTERVAL,
-          easing: 'cubic-bezier(0.34, 1.3, 0.64, 1)', // lands with a tiny overshoot
+          easing: 'cubic-bezier(0.22, 1, 0.36, 1)', // long soft deceleration
           fill: 'both',
         }
       );
@@ -99,6 +95,7 @@ export class Intro {
         .catch(() => {})
         .then(() => {
           el.style.transform = settle; // pin the pose, free the animation
+          el.style.opacity = '1';
           anim.cancel();
         });
     });

@@ -17,7 +17,8 @@ export class WheelScroller {
   constructor() {
     this.target = 0;
     this.value = 0;
-    this.enabled = false; // input stays inert until the intro finishes
+    this.enabled = false;     // input stays inert until the intro finishes
+    this.lastInput = -Infinity; // timestamp of the latest wheel/touch input
 
     window.addEventListener(
       'wheel',
@@ -27,6 +28,7 @@ export class WheelScroller {
         // deltaMode 1 = lines (Firefox); normalize to pixels
         const delta = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
         this.target += delta * WHEEL.SENSITIVITY;
+        this.lastInput = performance.now();
       },
       { passive: false }
     );
@@ -40,9 +42,15 @@ export class WheelScroller {
       if (lastY === null || !this.enabled) return;
       const y = e.touches[0].clientY;
       this.target += (lastY - y) * WHEEL.SENSITIVITY * 2.4;
+      this.lastInput = performance.now();
       lastY = y;
     }, { passive: true });
     window.addEventListener('touchend', () => { lastY = null; });
+  }
+
+  /** True while the user is actively scrolling (within `holdMs` of the last input). */
+  isActive(holdMs) {
+    return performance.now() - this.lastInput < holdMs;
   }
 
   update(dt) {

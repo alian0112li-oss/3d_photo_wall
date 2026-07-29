@@ -50,12 +50,31 @@ export const MOTION = {
   BOB_AMP: 0.06,      // whole-wall breathing amplitude
 };
 
+/**
+ * Spin speed model (rad/s) — three tiers blended with damping, so there
+ * are no hard thresholds. Current values (this revision):
+ *
+ *   BASE   0.14  normal display spin
+ *   HOVER  0.05  pointer resting on a photo -> slows for viewing
+ *   SCROLL 0.19  while the wheel is scrolling -> a touch faster than BASE
+ *
+ * Priority: SCROLL > HOVER > BASE. DAMP controls how quickly the speed
+ * eases between tiers; SCROLL_HOLD is how long after the last wheel
+ * input the "scrolling" tier persists.
+ */
+export const SPIN = {
+  BASE: 0.14,
+  HOVER: 0.05,
+  SCROLL: 0.19,
+  DAMP: 3.5,       // tier blending (higher = snappier changes)
+  SCROLL_HOLD: 300, // ms
+};
+
 /** Scene atmosphere. */
 export const SCENE = {
   BACKGROUND: 0x0a0b14,
   FOG_DENSITY: 0.017, // light enough that far-side photos stay readable
-  FLOOR_GAP: 0.7,          // gap between lowest card edge and the mirror floor
-  AUTO_ROTATE_SPEED: 0.08, // rad/s constant spin (independent of the wheel)
+  FLOOR_GAP: 0.7,     // gap between lowest card edge and the mirror floor
 };
 
 /** Resolve a photo URL (works in dev and on GitHub Pages). */
