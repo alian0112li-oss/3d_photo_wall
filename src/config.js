@@ -13,7 +13,7 @@ export const WALL = {
   PHOTO_H: 3.0,     // photo height (matches 600x750 -> 4:5)
   ROW_GAP: 9.0,     // vertical distance between ring centres — airy, K95-like spacing
                     // (gap between rings ≈ 1.8x the card height)
-  FRAME_BORDER: 0.24, // extra frame size around the photo
+  FRAME_BORDER: 0,    // no dark rim around the photo (edge box = photo size)
   CARD_DEPTH: 0.14,   // card thickness -> real 3D body, visible from behind
 };
 
@@ -74,14 +74,13 @@ export const SPIN = {
 };
 
 /**
- * Hover / distortion FX (K95-style photo shader) — JS-side tunables.
- * GLSL-side strengths (lens 0.30, wave 0.035, rgb shift 0.02, flex 0.22)
- * live commented in scene/photoMaterial.js.
+ * Hover / distortion FX — JS-side tunables. GLSL-side strengths
+ * (wave 0.035, rgb shift 0.02, flex 0.22) live commented in
+ * scene/photoMaterial.js.
  */
 export const FX = {
-  HOVER_SCALE: 1.08,   // card pop while hovered
-  HOVER_DAMP: 8,       // hover amount easing (lens + scale)
-  MOUSE_DAMP: 10,      // lens centre chasing the cursor
+  HOVER_SCALE: 1.08,   // gentle card pop while hovered
+  HOVER_DAMP: 8,       // hover scale easing
   VELOCITY_GAIN: 2.2,  // wheel travel velocity -> shader uVel (-1..1)
   VELOCITY_DAMP: 5,    // velocity smoothing
 };

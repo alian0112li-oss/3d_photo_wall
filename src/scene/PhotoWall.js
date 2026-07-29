@@ -16,13 +16,14 @@ const ENTRANCE_DURATION = 0.4;  // s per card pop
 /**
  * Cylindrical wall of true-3D photo cards.
  *
- * Each card = thick box frame (metallic) + the SAME photo shader on both
- * faces (the rear plane is rotated 180°, not mirrored). The photo faces
- * run a custom material: hover lens bulge (凹凸镜), velocity-driven sine
- * stretch + RGB shift, and vertex flex — see photoMaterial.js.
+ * Each card = a thin edge box (exactly the photo's size — no dark rim
+ * around the image) + the SAME photo shader on both faces (the rear
+ * plane is rotated 180°, not mirrored). The photo faces run a custom
+ * material: velocity-driven sine stretch + RGB shift and vertex flex —
+ * see photoMaterial.js.
  *
  * Pointer input never moves the wall; hovering a card slows the spin
- * (App) and drives that card's lens + scale pop here.
+ * (App) and gives it a gentle scale pop here.
  */
 export class PhotoWall {
   constructor({ manager, maxAnisotropy = 1 } = {}) {
@@ -61,8 +62,7 @@ export class PhotoWall {
         floatPhase: i * 0.53,
         mat: photoMat,
         entS: 1,     // entrance scale (0 while hidden, eased to 1)
-        hoverAmt: 0, // damped hover amount -> lens + scale pop
-        mouse: new THREE.Vector2(0.5, 0.5),
+        hoverAmt: 0, // damped hover amount -> gentle scale pop
       };
 
       const frame = new THREE.Mesh(frameGeo, frameMat);
@@ -131,7 +131,6 @@ export class PhotoWall {
     const entrance = this.entrance;
     let allDone = true;
     const hoverK = Math.min(1, dt * FX.HOVER_DAMP);
-    const mouseK = Math.min(1, dt * FX.MOUSE_DAMP);
     const vel = reduceMotion ? 0 : this._vel;
 
     this.cards.forEach((card, i) => {
@@ -155,19 +154,16 @@ export class PhotoWall {
         }
       }
 
-      // hover: damped amount + cursor-follow lens centre
+      // hover: a simple, gentle scale pop (damped in and out)
       const isHover = card === this.hovered;
       ud.hoverAmt += ((isHover ? 1 : 0) - ud.hoverAmt) * hoverK;
-      if (isHover) ud.mouse.lerp(this.hoverUV, mouseK);
 
       // combined scale: entrance pop x hover pop
       const hoverScale = 1 + ud.hoverAmt * (FX.HOVER_SCALE - 1);
       card.scale.setScalar(Math.max(0.0001, ud.entS * hoverScale));
 
-      // drive the shader
+      // drive the shader (velocity distortion only)
       const u = ud.mat.uniforms;
-      u.uHover.value = reduceMotion ? 0 : ud.hoverAmt;
-      u.uMouse.value.copy(ud.mouse);
       u.uVel.value = vel;
       u.uTime.value = t;
     });
