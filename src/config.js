@@ -56,19 +56,20 @@ export const MOTION = {
  *
  *   BASE   0.14  normal display spin
  *   HOVER  0.05  pointer resting on a photo -> slows for viewing
- *   SCROLL 0.19  while the wheel is scrolling -> a touch faster than BASE;
- *                the sign follows the scroll direction (wheel up reverses)
+ *   SCROLL 0.45  while the wheel is scrolling -> a clearly visible
+ *                spin-up (~3x BASE); the sign follows the scroll
+ *                direction (wheel up reverses the spin)
  *
  * Priority: SCROLL > HOVER > BASE. DAMP controls how quickly the speed
- * eases between tiers; SCROLL_HOLD is how long after the last wheel
- * input the "scrolling" tier persists.
+ * eases between tiers (time constant ≈ 1/DAMP s); SCROLL_HOLD is how
+ * long after the last wheel input the "scrolling" tier persists.
  */
 export const SPIN = {
   BASE: 0.14,
   HOVER: 0.05,
-  SCROLL: 0.19,
-  DAMP: 3.5,       // tier blending (higher = snappier changes)
-  SCROLL_HOLD: 300, // ms
+  SCROLL: 0.45,
+  DAMP: 6,          // tier blending — kicks in fast, still smooth
+  SCROLL_HOLD: 450, // ms
 };
 
 /** Scene atmosphere. */
