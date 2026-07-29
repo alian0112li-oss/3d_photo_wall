@@ -11,14 +11,14 @@ import { imageUrl } from '../config.js';
  *    final 100% layer is pure black (no photo) and caps the stack.
  *    A [0..100] counter at the stack's top-right corner runs on the
  *    same clock as the deal.
- * 2. PUNCH — the stack blurs away while a "patch" element (a fixed,
- *    transparent rect sitting exactly on the stack, wearing a giant
- *    white box-shadow) takes over: everything is white EXCEPT a
- *    card-shaped hole, and through the hole you already see the live
- *    3D wall. The hole then scales from the centre until it swallows
- *    the whole viewport (expo-in-out), revealing the page.
- * 3. Cleanup: input enabled, intro removed. Every phase has a timeout
- *    safety net so a hidden tab can never stall the flow.
+ * 2. COVER — a solid black patch parked exactly on the stack (visually
+ *    the black cap itself) scales from the centre until it fills the
+ *    whole viewport (expo-in-out): the page goes fully black.
+ * 3. REVEAL — only once black has covered everything does the wall get
+ *    its cue: the black lifts while the wall's photos pop in one by one,
+ *    each at its own position on the cylinder (staggered entrance driven
+ *    by PhotoWall.playEntrance). Every phase has a timeout safety net so
+ *    a hidden tab can never stall the flow.
  */
 
 // each card slightly bigger than the previous; the last (black) covers all
@@ -28,11 +28,10 @@ const PHOTO_LAYERS = LAYER_WIDTHS.length - 1; // 8 photos + 1 black cap
 const DEAL_TOTAL = 2800;    // ms — whole deal, counter reaches [100] here
 const CARD_DURATION = 800;  // ms — one card's 0 -> target growth
 const STAGGER = (DEAL_TOTAL - CARD_DURATION) / (LAYER_WIDTHS.length - 1); // 250ms
-const PREVIEW_MS = 420;     // stack blur-out / hole preview
-const PUNCH_DELAY = 60;     // beat between preview and expansion
-const EXPAND_MS = 1000;     // hole expansion (expo.inOut feel)
+const PUNCH_DELAY = 60;     // beat before the black starts expanding
+const EXPAND_MS = 1000;     // black cover expansion (expo.inOut feel)
 const OVERSHOOT = 1.04;     // expand 4% past the viewport edges
-const CLEAR_MS = 380;       // settle before removing the intro root
+const LIFT_MS = 600;        // black lifting while the wall's photos appear
 
 const easeOutQuint = (t) => 1 - Math.pow(1 - t, 5);
 
@@ -88,14 +87,14 @@ export class Intro {
     this.counter.textContent = '[0]';
     stack.appendChild(this.counter);
 
-    // the hole-punch patch (hidden until the reveal)
+    // the black cover patch (hidden until the reveal)
     this.patch = document.createElement('div');
     this.patch.className = 'intro-patch';
     root.appendChild(this.patch);
 
     await this._deal();
     await this.ready; // hold on the finished pile until the wall's textures are in
-    await this._punchReveal();
+    await this._coverAndReveal();
   }
 
   /** Phase 1: one rAF clock grows every layer (staggered) + drives the counter. */
@@ -132,11 +131,12 @@ export class Intro {
   }
 
   /**
-   * Phase 2: white viewport with a card-shaped hole (the patch's giant
-   * white box-shadow paints everything but the hole), expanding from the
-   * stack's rect until it swallows the viewport.
+   * Phase 2+3: the solid black patch — visually the black cap itself —
+   * expands from the stack's rect until the screen is fully black; only
+   * then the wall gets its entrance cue and the black lifts while the
+   * photos pop in one by one at their positions.
    */
-  async _punchReveal() {
+  async _coverAndReveal() {
     const { root, stack, patch } = this;
     const rect = stack.getBoundingClientRect();
 
@@ -147,30 +147,35 @@ export class Intro {
       return;
     }
 
-    // park the patch exactly on the stack
+    // park the black patch exactly on the stack (seamless with the cap)
     patch.style.transition = 'none';
     patch.style.left = `${rect.left}px`;
     patch.style.top = `${rect.top}px`;
     patch.style.width = `${rect.width}px`;
     patch.style.height = `${rect.height}px`;
     patch.style.transform = 'scale(1)';
+    patch.style.opacity = '1';
+    void patch.offsetWidth; // commit the parked state
+    await delay(PUNCH_DELAY);
 
-    // preview: stack blurs away, the white world with a live hole remains
-    root.classList.add('is-punching');
-    await delay(PREVIEW_MS + PUNCH_DELAY);
-
-    // expand the hole from the centre until it covers the viewport
+    // expand the black from the centre until it covers the viewport
     const cx = rect.left + rect.width / 2;
     const cy = rect.top + rect.height / 2;
     const sx = Math.max(1, (Math.max(cx, window.innerWidth - cx) * 2) / rect.width) * OVERSHOOT;
     const sy = Math.max(1, (Math.max(cy, window.innerHeight - cy) * 2) / rect.height) * OVERSHOOT;
-    void patch.offsetWidth; // commit the parked state
     patch.style.transition = `transform ${EXPAND_MS}ms cubic-bezier(0.87, 0, 0.13, 1)`; // expo.inOut
     patch.style.transform = `scale(${sx}, ${sy})`;
     await waitTransition(patch, EXPAND_MS + 400);
 
-    this.onDone?.();
-    await delay(CLEAR_MS);
+    // screen fully black — swap the underlay and cue the wall's entrance
+    stack.remove();
+    root.classList.add('is-covered'); // white backdrop off; only the black remains
+    this.onDone?.();                  // photos start appearing one by one
+
+    // lift the black to show them arriving
+    patch.style.transition = `opacity ${LIFT_MS}ms ease`;
+    patch.style.opacity = '0';
+    await waitTransition(patch, LIFT_MS + 400);
     root.remove();
   }
 }

@@ -95,9 +95,19 @@ export class App {
     });
   }
 
-  /** Called when the intro's mask covers the screen (or when skipping it). */
+  /** Called when the intro's cover completes (or when skipping it). */
   enableInput() {
     this.wheel.enabled = true;
+  }
+
+  /** Hide the wall so the intro can reveal it card by card. */
+  hideWall() {
+    this.wall.hideAll();
+  }
+
+  /** Start the one-by-one card entrance (photos pop at their positions). */
+  revealWall() {
+    this.wall.playEntrance(this.clock.elapsedTime);
   }
 
   _onResize() {

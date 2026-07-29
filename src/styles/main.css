@@ -79,9 +79,9 @@ body {
   place-content: center;
   pointer-events: auto;
 }
-/* during the punch the backdrop goes transparent: everything outside the
-   hole is painted white by the patch's giant box-shadow instead */
-#intro.is-punching {
+/* once the black has covered the viewport the white backdrop retires —
+   only the black patch remains, lifting to reveal the wall */
+#intro.is-covered {
   background: transparent;
 }
 
@@ -90,11 +90,6 @@ body {
   width: min(40vw, 420px);
   aspect-ratio: 4 / 5; /* matches the 600x750 photos */
   z-index: 2;
-}
-#intro.is-punching .intro-stack {
-  opacity: 0;
-  filter: blur(8px);
-  transition: opacity 0.42s ease, filter 0.42s ease;
 }
 
 /* each layer blooms from the centre: width is JS-driven 0 -> target,
@@ -138,26 +133,22 @@ body {
   z-index: 11;
 }
 
-/* the hole punch: a transparent rect whose massive white box-shadow
-   paints the whole viewport EXCEPT the card-shaped hole; scaling the
-   rect from the centre expands the hole until it swallows the screen */
+/* the black cover: a solid rect parked exactly on the stack (seamless
+   with the black cap card); scaling it from the centre floods the whole
+   viewport black, then its opacity lifts to reveal the wall */
 .intro-patch {
   position: fixed;
   left: 0;
   top: 0;
   width: 0;
   height: 0;
-  background: transparent;
-  box-shadow: 0 0 0 200vmax #fff;
+  background: #000;
   contain: paint;
   opacity: 0;
   pointer-events: none;
   transform-origin: center center;
   will-change: transform, opacity;
   z-index: 10;
-}
-#intro.is-punching .intro-patch {
-  opacity: 1;
 }
 
 @media (max-width: 768px) {

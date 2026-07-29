@@ -2,6 +2,16 @@ import * as THREE from 'three';
 import { WALL, MOTION, imageUrl } from '../config.js';
 import { createFallbackTexture } from './textures.js';
 
+/** easeOutBack — a small overshoot so each card lands with a pop. */
+const easeOutBack = (t) => {
+  const c1 = 1.70158;
+  const c3 = c1 + 1;
+  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+};
+
+const ENTRANCE_STAGGER = 0.055; // s between cards
+const ENTRANCE_DURATION = 0.4;  // s per card pop
+
 /**
  * Cylindrical wall of true-3D photo cards.
  *
@@ -79,12 +89,46 @@ export class PhotoWall {
     material.needsUpdate = true;
   }
 
-  /** Per-frame: gentle idle float, each card on its own phase. */
-  update(t, reduceMotion = false) {
-    if (reduceMotion) return;
+  /** Hide every card (used before the intro's staggered entrance). */
+  hideAll() {
     for (const card of this.cards) {
-      const ud = card.userData;
-      card.position.y = ud.base.y + Math.sin(t * 0.9 + ud.floatPhase * 6) * MOTION.FLOAT_AMP;
+      card.visible = false;
+      card.scale.setScalar(0.0001);
+    }
+  }
+
+  /** Cue the one-by-one entrance: each card pops up at its own position. */
+  playEntrance(t0) {
+    this.entrance = { t0 };
+  }
+
+  /** Per-frame: gentle idle float + (if cued) the staggered entrance. */
+  update(t, reduceMotion = false) {
+    if (!reduceMotion) {
+      for (const card of this.cards) {
+        const ud = card.userData;
+        card.position.y = ud.base.y + Math.sin(t * 0.9 + ud.floatPhase * 6) * MOTION.FLOAT_AMP;
+      }
+    }
+
+    if (this.entrance) {
+      const { t0 } = this.entrance;
+      let allDone = true;
+      this.cards.forEach((card, i) => {
+        const local = t - t0 - i * ENTRANCE_STAGGER;
+        if (local <= 0) {
+          allDone = false;
+          return; // not this card's turn yet
+        }
+        card.visible = true;
+        const k = Math.min(1, local / ENTRANCE_DURATION);
+        if (k < 1) allDone = false;
+        card.scale.setScalar(Math.max(0.0001, easeOutBack(k)));
+      });
+      if (allDone) {
+        this.entrance = null;
+        for (const card of this.cards) card.scale.setScalar(1);
+      }
     }
   }
 }

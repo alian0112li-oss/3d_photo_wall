@@ -14,10 +14,14 @@ if (reduceMotion || !introRoot) {
   introRoot?.remove();
   app.enableInput();
 } else {
+  app.hideWall(); // cards stay hidden until the black cover lifts
   intro = new Intro({
     root: introRoot,
     ready: app.ready,
-    onDone: () => app.enableInput(),
+    onDone: () => {
+      app.revealWall(); // photos pop in one by one at their positions
+      app.enableInput();
+    },
   });
   intro.play();
 }
