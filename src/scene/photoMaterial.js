@@ -23,7 +23,7 @@ const VERTEX = /* glsl */ `
     vUv = uv;
     vec3 p = position;
     // non-linear flex: the card bows along its height with velocity
-    p.z += sin(uv.y * 3.1415926) * uVel * 0.22;
+    p.z += sin(uv.y * 3.1415926) * uVel * 0.12;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
   }
 `;
@@ -44,10 +44,11 @@ const FRAGMENT = /* glsl */ `
     vec2 uv = gl_FrontFacing ? vUv : vec2(1.0 - vUv.x, vUv.y);
 
     // --- travel wave: sine UV stretch, amount follows the velocity ---
-    uv.y += sin(uv.x * 8.0 + uTime * 0.8) * uVel * 0.035;
+    // K95-calibrated subtlety: ~1% UV at full speed (was 3.5% — read as a glitch)
+    uv.y += sin(uv.x * 8.0 + uTime * 0.8) * uVel * 0.01;
 
     // --- RGB shift: channels part ways with speed ---
-    float shift = uVel * 0.02;
+    float shift = uVel * 0.005;
 
     float cr = texture2D(uMap, uv + vec2(shift, 0.0)).r;
     float cg = texture2D(uMap, uv).g;

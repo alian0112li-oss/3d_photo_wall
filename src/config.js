@@ -75,13 +75,14 @@ export const SPIN = {
 
 /**
  * Hover / distortion FX — JS-side tunables. GLSL-side strengths
- * (wave 0.035, rgb shift 0.02, flex 0.22) live commented in
- * scene/photoMaterial.js.
+ * (wave 0.01, rgb shift 0.005, flex 0.12) live commented in
+ * scene/photoMaterial.js — calibrated to K95's real-world subtlety.
  */
 export const FX = {
   HOVER_SCALE: 1.08,   // gentle card pop while hovered
   HOVER_DAMP: 8,       // hover scale easing
-  VELOCITY_GAIN: 2.2,  // wheel travel velocity -> shader uVel (-1..1)
+  VELOCITY_GAIN: 1.5,  // wheel travel velocity -> shader uVel (-1..1);
+                       // lower = uVel saturates only on vigorous scrolls
   VELOCITY_DAMP: 5,    // velocity smoothing
 };
 
