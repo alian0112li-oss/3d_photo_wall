@@ -11,7 +11,7 @@ export const WALL = {
   RADIUS: 12,       // cylinder radius (larger -> wider horizontal gaps)
   PHOTO_W: 2.4,     // photo width  (world units)
   PHOTO_H: 3.0,     // photo height (matches 600x750 -> 4:5)
-  ROW_GAP: 6.0,     // vertical distance between ring centres
+  ROW_GAP: 7.0,     // vertical distance between ring centres
   FRAME_BORDER: 0.24, // extra frame size around the photo
   CARD_DEPTH: 0.14,   // card thickness -> real 3D body, visible from behind
 };
@@ -33,7 +33,7 @@ export const CAMERA = {
  */
 export const WHEEL = {
   SENSITIVITY: 0.00055, // wheel delta -> progress (0..1)
-  TRAVEL: 12,           // total vertical travel (= 2 × WALL.ROW_GAP)
+  TRAVEL: 14,           // total vertical travel (= 2 × WALL.ROW_GAP)
 };
 
 /**
@@ -54,9 +54,9 @@ export const MOTION = {
  * Spin speed model (rad/s) — three tiers blended with damping, so there
  * are no hard thresholds. Current values (this revision):
  *
- *   BASE   0.14  normal display spin
- *   HOVER  0.05  pointer resting on a photo -> slows for viewing
- *   SCROLL 0.30  while the wheel is scrolling -> a clearly visible
+ *   BASE   0.09  normal display spin
+ *   HOVER  0.03  pointer resting on a photo -> slows for viewing
+ *   SCROLL 0.20  while the wheel is scrolling -> a clearly visible
  *                spin-up (~2x BASE); the sign follows the scroll
  *                direction (wheel up reverses the spin)
  *
@@ -65,9 +65,9 @@ export const MOTION = {
  * long after the last wheel input the "scrolling" tier persists.
  */
 export const SPIN = {
-  BASE: 0.14,
-  HOVER: 0.05,
-  SCROLL: 0.3,
+  BASE: 0.09,
+  HOVER: 0.03,
+  SCROLL: 0.2,
   DAMP: 6,          // tier blending — kicks in fast, still smooth
   SCROLL_HOLD: 450, // ms
 };
