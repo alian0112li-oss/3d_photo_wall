@@ -1,46 +1,54 @@
 import { imageUrl } from '../config.js';
 
 /**
- * Opening sequence (white backdrop):
+ * K95-style opening sequence (https://k95.it reference):
  *
- * 1. Cards drop one by one onto the exact centre of the screen, each
- *    perfectly straight and stacking on top of the previous (rising
- *    z-index) — a neat deck, not a scatter. Every card fades in as it
- *    falls so the motion reads clearly against the white backdrop.
- *    The last card is pure black — the only black element on the page.
- * 2. FLIP viewport fill: the black card — an ordinary card in the stack
- *    flow — is instantly converted into a fixed, fullscreen "viewport
- *    mask layer" (First -> Last layout change), inverted back onto its
- *    old rect with a transform so nothing appears to move, then played
- *    so it expands to fill the viewport. That expansion is the moment
- *    the page turns black.
- * 3. While the mask covers the screen the underlying layout is switched
- *    (stack removed, 3D wall input enabled), then the mask lifts to
- *    reveal the dark scene.
+ * 1. DEAL — on a pure-white backdrop, photo cards bloom one by one from
+ *    the exact centre of the screen: each layer is centre-anchored and
+ *    its width grows 0 -> target with a strong ease-out, aspect locked,
+ *    so it scales up out of nothing on top of the pile. Targets step up
+ *    84% -> 100% so every card is slightly bigger than the last; the
+ *    final 100% layer is pure black (no photo) and caps the stack.
+ *    A [0..100] counter at the stack's top-right corner runs on the
+ *    same clock as the deal.
+ * 2. PUNCH — the stack blurs away while a "patch" element (a fixed,
+ *    transparent rect sitting exactly on the stack, wearing a giant
+ *    white box-shadow) takes over: everything is white EXCEPT a
+ *    card-shaped hole, and through the hole you already see the live
+ *    3D wall. The hole then scales from the centre until it swallows
+ *    the whole viewport (expo-in-out), revealing the page.
+ * 3. Cleanup: input enabled, intro removed. Every phase has a timeout
+ *    safety net so a hidden tab can never stall the flow.
  */
 
-const FALL_COUNT = 10;      // photo cards before the black cap
-const FALL_INTERVAL = 170;  // ms between drops
-const FALL_DURATION = 820;  // ms per drop
-const ZOOM_SCALE = 1.1;     // the photo grows inside its fixed frame...
-const ZOOM_DURATION = 420;  // ...briefly, as the card arrives
-const EXPAND_DURATION = 720;
-const FADE_DURATION = 700;
+// each card slightly bigger than the previous; the last (black) covers all
+const LAYER_WIDTHS = [84, 86, 88, 90, 92, 94, 96, 98, 100];
+const PHOTO_LAYERS = LAYER_WIDTHS.length - 1; // 8 photos + 1 black cap
 
-const withTimeout = (promise, ms) =>
-  Promise.race([promise, new Promise((res) => setTimeout(res, ms))]);
+const DEAL_TOTAL = 2800;    // ms — whole deal, counter reaches [100] here
+const CARD_DURATION = 800;  // ms — one card's 0 -> target growth
+const STAGGER = (DEAL_TOTAL - CARD_DURATION) / (LAYER_WIDTHS.length - 1); // 250ms
+const PREVIEW_MS = 420;     // stack blur-out / hole preview
+const PUNCH_DELAY = 60;     // beat between preview and expansion
+const EXPAND_MS = 1000;     // hole expansion (expo.inOut feel)
+const OVERSHOOT = 1.04;     // expand 4% past the viewport edges
+const CLEAR_MS = 380;       // settle before removing the intro root
+
+const easeOutQuint = (t) => 1 - Math.pow(1 - t, 5);
+
+const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
 const waitTransition = (el, ms) =>
   Promise.race([
     new Promise((res) => el.addEventListener('transitionend', res, { once: true })),
-    new Promise((res) => setTimeout(res, ms)),
+    delay(ms),
   ]);
 
 export class Intro {
   /**
    * @param {HTMLElement} root  the #intro overlay element
    * @param {Promise} ready     resolves when the 3D textures are loaded
-   * @param {Function} onDone   called at the layout switch (mask fully covering)
+   * @param {Function} onDone   called when the reveal completes (enable input)
    */
   constructor({ root, ready, onDone }) {
     this.root = root;
@@ -52,113 +60,117 @@ export class Intro {
     const { root } = this;
     root.classList.add('active');
 
+    // centre stack + layers
     const stack = document.createElement('div');
     stack.className = 'intro-stack';
     root.appendChild(stack);
+    this.stack = stack;
 
-    // build the deck: FALL_COUNT photos + one black cap
-    const cards = [];
-    for (let i = 0; i < FALL_COUNT; i++) {
-      const el = document.createElement('div');
-      el.className = 'intro-card';
-      const img = document.createElement('img');
-      img.src = imageUrl(i);
-      img.alt = '';
-      img.draggable = false;
-      img.decoding = 'async';
-      el.appendChild(img);
-      stack.appendChild(el);
-      cards.push(el);
-    }
-    const black = document.createElement('div');
-    black.className = 'intro-card intro-card-black';
-    stack.appendChild(black);
-    cards.push(black);
-
-    // deal the deck — every card falls straight down from above the
-    // viewport onto the same centred spot. It stays fully opaque the
-    // whole way, so you can see exactly where each card comes from.
-    const settle = 'translate(-50%, -50%) scale(1)';
-    const drops = cards.map((el, i) => {
-      el.style.zIndex = String(10 + i); // one pressing on another
-      const anim = el.animate(
-        [
-          // parked fully above the top edge — enters the screen visibly
-          { transform: 'translate(-50%, calc(-50% - 72vh)) scale(1.02)', opacity: 1 },
-          { transform: settle, opacity: 1 },
-        ],
-        {
-          duration: FALL_DURATION,
-          delay: i * FALL_INTERVAL,
-          easing: 'cubic-bezier(0.5, 0, 0.15, 1)', // gravity in, soft landing
-          fill: 'both',
-        }
-      );
-      // the photo grows briefly inside its fixed frame as the card arrives
-      const img = el.querySelector('img');
-      if (img) {
-        img.animate(
-          [{ transform: 'scale(1)' }, { transform: `scale(${ZOOM_SCALE})` }],
-          {
-            duration: ZOOM_DURATION,
-            delay: i * FALL_INTERVAL + 180,
-            easing: 'ease-out',
-            fill: 'both',
-          }
-        );
+    this.layers = LAYER_WIDTHS.map((_, i) => {
+      const layer = document.createElement('div');
+      layer.className = 'intro-layer' + (i === LAYER_WIDTHS.length - 1 ? ' intro-layer--final' : '');
+      layer.style.zIndex = String(i + 1); // one pressing on another
+      if (i < PHOTO_LAYERS) {
+        const img = document.createElement('img');
+        img.src = imageUrl(i);
+        img.alt = '';
+        img.draggable = false;
+        img.decoding = 'async';
+        img.loading = 'eager';
+        layer.appendChild(img);
       }
-      return anim.finished
-        .catch(() => {})
-        .then(() => {
-          el.style.transform = settle; // pin the pose, free the animation
-          el.style.opacity = '1';
-          anim.cancel();
-        });
+      stack.appendChild(layer);
+      return layer;
     });
 
-    const dealTime = FALL_COUNT * FALL_INTERVAL + FALL_DURATION;
-    await withTimeout(Promise.all(drops), dealTime + 1500);
-    await this.ready; // hold on the pile until the wall's textures are in
+    this.counter = document.createElement('div');
+    this.counter.className = 'intro-counter';
+    this.counter.textContent = '[0]';
+    stack.appendChild(this.counter);
 
-    await this._flipToMask(black, stack);
+    // the hole-punch patch (hidden until the reveal)
+    this.patch = document.createElement('div');
+    this.patch.className = 'intro-patch';
+    root.appendChild(this.patch);
+
+    await this._deal();
+    await this.ready; // hold on the finished pile until the wall's textures are in
+    await this._punchReveal();
+  }
+
+  /** Phase 1: one rAF clock grows every layer (staggered) + drives the counter. */
+  _deal() {
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        this.layers.forEach((el, i) => { el.style.width = `${LAYER_WIDTHS[i]}%`; });
+        this.counter.textContent = '[100]';
+        resolve();
+      };
+
+      const start = performance.now();
+      const tick = (now) => {
+        if (settled) return;
+        const t = Math.min(now - start, DEAL_TOTAL);
+        this.layers.forEach((el, i) => {
+          const local = t - i * STAGGER;
+          if (local <= 0) return;
+          const k = local >= CARD_DURATION ? 1 : easeOutQuint(local / CARD_DURATION);
+          el.style.width = `${LAYER_WIDTHS[i] * k}%`;
+        });
+        this.counter.textContent = `[${Math.round((t / DEAL_TOTAL) * 100)}]`;
+        if (t < DEAL_TOTAL) requestAnimationFrame(tick);
+        else finish();
+      };
+      requestAnimationFrame(tick);
+
+      // hidden tabs pause rAF — never let the deal stall
+      setTimeout(finish, DEAL_TOTAL + 900);
+    });
   }
 
   /**
-   * FLIP: the black card becomes the fullscreen viewport mask.
-   * First -> measure its rect in the pile; Last -> instant switch to a
-   * fixed fullscreen layer; Invert -> transform back onto the old rect;
-   * Play -> transition to identity, filling the viewport.
+   * Phase 2: white viewport with a card-shaped hole (the patch's giant
+   * white box-shadow paints everything but the hole), expanding from the
+   * stack's rect until it swallows the viewport.
    */
-  async _flipToMask(black, stack) {
-    const first = black.getBoundingClientRect();
+  async _punchReveal() {
+    const { root, stack, patch } = this;
+    const rect = stack.getBoundingClientRect();
 
-    black.classList.add('as-mask');    // Last: fixed, inset 0 — instant layout change
-    black.style.transform = 'none';    // drop the settle transform, else the Last rect
-                                       // is shifted by -50% and the mask appears to
-                                       // grow from the bottom-right instead of centre
-    this.root.appendChild(black);      // survives the stack's removal
-    const last = black.getBoundingClientRect();
+    // degenerate viewport (hidden tab) -> skip the visual, finish cleanly
+    if (rect.width < 2 || rect.height < 2) {
+      this.onDone?.();
+      root.remove();
+      return;
+    }
 
-    const sx = first.width / last.width;
-    const sy = first.height / last.height;
-    black.style.transformOrigin = '0 0';
-    black.style.transform =
-      `translate(${first.left - last.left}px, ${first.top - last.top}px) scale(${sx}, ${sy})`;
-    void black.offsetWidth;            // commit the inverted state
+    // park the patch exactly on the stack
+    patch.style.transition = 'none';
+    patch.style.left = `${rect.left}px`;
+    patch.style.top = `${rect.top}px`;
+    patch.style.width = `${rect.width}px`;
+    patch.style.height = `${rect.height}px`;
+    patch.style.transform = 'scale(1)';
 
-    black.style.transition = `transform ${EXPAND_DURATION}ms cubic-bezier(0.65, 0, 0.35, 1)`;
-    black.style.transform = 'none';
-    await waitTransition(black, EXPAND_DURATION + 400);
+    // preview: stack blurs away, the white world with a live hole remains
+    root.classList.add('is-punching');
+    await delay(PREVIEW_MS + PUNCH_DELAY);
 
-    // the mask now covers the viewport — switch the underlying layout
-    stack.remove();
-    this.root.classList.remove('active'); // overlay turns transparent, only the mask remains
+    // expand the hole from the centre until it covers the viewport
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const sx = Math.max(1, (Math.max(cx, window.innerWidth - cx) * 2) / rect.width) * OVERSHOOT;
+    const sy = Math.max(1, (Math.max(cy, window.innerHeight - cy) * 2) / rect.height) * OVERSHOOT;
+    void patch.offsetWidth; // commit the parked state
+    patch.style.transition = `transform ${EXPAND_MS}ms cubic-bezier(0.87, 0, 0.13, 1)`; // expo.inOut
+    patch.style.transform = `scale(${sx}, ${sy})`;
+    await waitTransition(patch, EXPAND_MS + 400);
+
     this.onDone?.();
-
-    // lift the mask to reveal the wall
-    black.style.transition = `opacity ${FADE_DURATION}ms ease`;
-    black.style.opacity = '0';
-    await waitTransition(black, FADE_DURATION + 400);
-    this.root.remove();
+    await delay(CLEAR_MS);
+    root.remove();
   }
 }

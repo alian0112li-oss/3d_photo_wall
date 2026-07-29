@@ -64,7 +64,7 @@ body {
   white-space: nowrap;
 }
 
-/* ---------- Intro: falling deck -> FLIP viewport mask ---------- */
+/* ---------- Intro (K95 style): centre-bloom deck -> hole-punch reveal ---------- */
 #intro {
   position: fixed;
   inset: 0;
@@ -72,55 +72,97 @@ body {
   pointer-events: none;
 }
 #intro.active {
-  /* the deal happens on white — the black cap card is the only black
-     element, and the page only turns dark when it expands */
-  background: #f6f7f9;
+  /* the deal happens on pure white — the black cap card is the only
+     black element until the hole-punch reveals the dark scene */
+  background: #fff;
+  display: grid;
+  place-content: center;
   pointer-events: auto;
+}
+/* during the punch the backdrop goes transparent: everything outside the
+   hole is painted white by the patch's giant box-shadow instead */
+#intro.is-punching {
+  background: transparent;
 }
 
 .intro-stack {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
+  position: relative;
+  width: min(40vw, 420px);
+  aspect-ratio: 4 / 5; /* matches the 600x750 photos */
+  z-index: 2;
+}
+#intro.is-punching .intro-stack {
+  opacity: 0;
+  filter: blur(8px);
+  transition: opacity 0.42s ease, filter 0.42s ease;
 }
 
-.intro-card {
+/* each layer blooms from the centre: width is JS-driven 0 -> target,
+   aspect locked, centre-anchored — it scales up out of nothing */
+.intro-layer {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: clamp(150px, 20vw, 220px);
+  transform: translate(-50%, -50%);
+  width: 0;
   aspect-ratio: 4 / 5;
-  transform: translate(-50%, -170vh); /* parked above the viewport until dealt */
-  opacity: 0;
-  border-radius: 10px;
   overflow: hidden;
-  border: 4px solid #fff;
-  box-shadow: 0 16px 44px rgba(20, 24, 50, 0.28);
-  background: #e8eaf0;
+  background: #111;
+  border: 1px solid rgba(13, 13, 13, 0.08);
 }
-.intro-card img {
-  width: 100%;
-  height: 100%;
+.intro-layer img {
+  position: absolute;
+  inset: -1px; /* 1px bleed avoids hairline seams */
+  width: calc(100% + 2px);
+  height: calc(100% + 2px);
   object-fit: cover;
   display: block;
 }
-.intro-card-black {
+.intro-layer--final {
   background: #000;
-  border-color: #111;
+  border-color: transparent;
 }
 
-/* Last state of the FLIP: an ordinary card becomes the viewport mask */
-.intro-card.as-mask {
+/* [0..100] counter at the stack's top-right corner, same clock as the deal */
+.intro-counter {
+  position: absolute;
+  bottom: 100%;
+  left: calc(100% + 12px);
+  font-size: 14px;
+  color: #111;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 11;
+}
+
+/* the hole punch: a transparent rect whose massive white box-shadow
+   paints the whole viewport EXCEPT the card-shaped hole; scaling the
+   rect from the centre expands the hole until it swallows the screen */
+.intro-patch {
   position: fixed;
-  inset: 0;
   left: 0;
   top: 0;
-  width: 100vw;
-  height: 100vh;
-  aspect-ratio: auto;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
+  width: 0;
+  height: 0;
+  background: transparent;
+  box-shadow: 0 0 0 200vmax #fff;
+  contain: paint;
+  opacity: 0;
+  pointer-events: none;
+  transform-origin: center center;
+  will-change: transform, opacity;
+  z-index: 10;
+}
+#intro.is-punching .intro-patch {
+  opacity: 1;
+}
+
+@media (max-width: 768px) {
+  .intro-stack { width: min(72vw, 320px); }
+  .intro-counter { font-size: 12px; left: calc(100% + 8px); }
 }
 
 /* ---------- Loader ---------- */
