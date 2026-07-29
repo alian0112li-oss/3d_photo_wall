@@ -1,40 +1,52 @@
 import * as THREE from 'three';
-import { CAMERA, SCROLL, SCENE } from '../config.js';
+import { CAMERA, WHEEL, SCENE, MOTION } from '../config.js';
 import { createEnvironment } from '../scene/environment.js';
 import { PhotoWall } from '../scene/PhotoWall.js';
 import { DragRotator } from '../controls/DragRotator.js';
+import { WheelScroller } from '../controls/WheelScroller.js';
 import { FocusController } from '../controls/FocusController.js';
-import { initScrollAnimation } from '../scroll/scrollAnimation.js';
+
+const { damp } = THREE.MathUtils;
 
 /**
- * Application orchestrator: owns renderer/scene/camera, composes the
- * modules and runs the frame loop. Rotation sources are additive:
+ * Application orchestrator.
  *
- *   wall.rotation.y = drag offset (+ inertia + idle spin)
- *                   + scrollProgress * TURNS * 2π
- *   rig.position.y  = idle bob - scrollProgress * DESCEND
+ * Motion architecture — "targets + damped chase":
+ * inputs (wheel / drag / pointer) never move anything directly; they only
+ * write target values. The frame loop chases every target with
+ * frame-rate independent exponential damping (THREE.MathUtils.damp),
+ * which is what produces the sticky, viscous, weighty feel.
+ *
+ *   wall.rotation.y = drag chase + wheel chase * TURNS·2π + magnetic yaw
+ *   wall.rotation.x = magnetic pitch (pointer follow)
+ *   rig.position.y  = idle bob − wheel chase * TRAVEL
+ *   camera          = damped flight toward rig targets + damped parallax
  */
 export class App {
   constructor(container) {
     this.container = container;
     this.clock = new THREE.Clock();
     this.state = {
-      scrollProgress: 0,   // raw, from ScrollTrigger
-      smoothProgress: 0,   // eased in the frame loop
       focused: null,
       reduceMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
     };
 
-    // camera rig targets (GSAP tweens these on focus/release)
+    // camera rig targets (FocusController retargets these)
     this.camPos = new THREE.Vector3(...CAMERA.POSITION);
     this.camLook = new THREE.Vector3(...CAMERA.LOOK_AT);
-    this.parallax = new THREE.Vector2();
+    this.lookCur = new THREE.Vector3(...CAMERA.LOOK_AT); // damped look-at point
+    this.parallax = new THREE.Vector2();   // raw pointer (-1..1)
+    this.parallaxSm = new THREE.Vector2(); // damped pointer — magnetic follow
+
+    // scratch vectors (avoid per-frame allocation)
+    this._wp = new THREE.Vector3();
+    this._wq = new THREE.Quaternion();
+    this._wn = new THREE.Vector3();
 
     this._initRenderer();
     this._initScene();
     this._initLoader();
     this._initControls();
-    initScrollAnimation(this);
 
     window.addEventListener('resize', () => this._onResize());
   }
@@ -57,7 +69,7 @@ export class App {
     this.scene.background = new THREE.Color(SCENE.BACKGROUND);
     this.scene.fog = new THREE.FogExp2(SCENE.BACKGROUND, SCENE.FOG_DENSITY);
 
-    // the rig sinks as the user scrolls; wall + floor ride on it
+    // the rig sinks as the wheel scrolls; wall + floor ride on it
     this.rig = new THREE.Group();
     this.scene.add(this.rig);
 
@@ -84,8 +96,13 @@ export class App {
   }
 
   _initControls() {
+    this.wheel = new WheelScroller({
+      onInput: () => this.focus && this.focus.release(), // wheeling exits focus
+    });
     this.drag = new DragRotator(this.renderer.domElement, {
       enabled: () => !this.state.focused,
+      // vertical touch/drag also travels the wall (mobile-friendly)
+      onVertical: (dy) => this.wheel.nudge(-dy * 0.0016),
     });
     this.focus = new FocusController(this);
   }
@@ -100,38 +117,60 @@ export class App {
     this.renderer.setAnimationLoop(() => this.update());
   }
 
+  /** While a card is focused, keep the camera targets glued to it. */
+  _updateFocusTargets() {
+    const card = this.state.focused;
+    card.getWorldPosition(this._wp);
+    card.getWorldQuaternion(this._wq);
+    this._wn.set(0, 0, 1).applyQuaternion(this._wq);
+    this.camPos.copy(this._wp).addScaledVector(this._wn, CAMERA.FOCUS_DISTANCE);
+    this.camPos.y += 0.15;
+    this.camLook.copy(this._wp);
+  }
+
   update() {
     const dt = Math.min(this.clock.getDelta(), 0.05);
     const t = this.clock.elapsedTime;
     const s = this.state;
+    const rm = s.reduceMotion;
 
-    // ease the raw scroll progress for a weighty, cinematic feel
-    s.smoothProgress += (s.scrollProgress - s.smoothProgress) * Math.min(1, dt * 6);
+    // ---- damped pointer (magnetic follow source) ----
+    const px = rm ? 0 : this.parallax.x;
+    const py = rm ? 0 : this.parallax.y;
+    this.parallaxSm.x = damp(this.parallaxSm.x, px, MOTION.POINTER_DAMP, dt);
+    this.parallaxSm.y = damp(this.parallaxSm.y, py, MOTION.POINTER_DAMP, dt);
 
-    // wall rotation: drag/inertia + idle spin + scroll-driven turns
-    const idle = s.focused || s.reduceMotion ? 0 : SCENE.AUTO_ROTATE_SPEED;
+    // ---- inputs chase their targets ----
+    this.wheel.update(dt);
+    const idle = s.focused || rm ? 0 : SCENE.AUTO_ROTATE_SPEED;
     this.drag.update(dt, { autoSpeed: idle });
-    this.wall.group.rotation.y = this.drag.offset + s.smoothProgress * SCROLL.TURNS * Math.PI * 2;
 
-    // rig: idle bob + scroll-driven descent
-    const bob = s.reduceMotion ? 0 : Math.sin(t * 0.4) * 0.15;
-    this.rig.position.y = bob - s.smoothProgress * SCROLL.DESCEND;
+    // ---- wall: drag + wheel travel + magnetic yaw/pitch ----
+    const p = this.wheel.value; // 0..1 (briefly overshoots at the edges)
+    this.wall.group.rotation.y =
+      this.drag.value + p * WHEEL.TURNS * Math.PI * 2 + this.parallaxSm.x * MOTION.MAGNET_YAW;
+    this.wall.group.rotation.x = -this.parallaxSm.y * MOTION.MAGNET_PITCH;
 
-    this.wall.update(dt);
+    // ---- rig: idle bob + wheel-driven descent ----
+    const bob = rm ? 0 : Math.sin(t * 0.4) * 0.15;
+    this.rig.position.y = bob - p * WHEEL.TRAVEL;
 
-    // hover picking only while the wall is up and nothing is focused
-    if (!s.focused && s.smoothProgress < 0.25) this.focus.updateHover();
-    else if (!s.focused && this.wall.hovered) this.wall.setHovered(null);
+    // ---- cards: hover magnetism, lift, float ----
+    if (s.focused) this._updateFocusTargets();
+    else this.focus.updateHover();
+    this.wall.update(dt, t);
 
-    // camera: eased follow of rig targets + pointer parallax
-    const pk = s.focused ? 0.12 : 1; // parallax nearly off while inspecting a photo
-    const px = s.reduceMotion ? 0 : this.parallax.x * CAMERA.PARALLAX[0] * pk;
-    const py = s.reduceMotion ? 0 : this.parallax.y * CAMERA.PARALLAX[1] * pk;
-    const k = Math.min(1, dt * 4);
-    this.camera.position.x += (this.camPos.x + px - this.camera.position.x) * k;
-    this.camera.position.y += (this.camPos.y + py - this.camera.position.y) * k;
-    this.camera.position.z += (this.camPos.z - this.camera.position.z) * k;
-    this.camera.lookAt(this.camLook);
+    // ---- camera: damped flight + damped parallax ----
+    const pk = s.focused ? 0.12 : 1; // parallax nearly off while inspecting
+    const ox = this.parallaxSm.x * CAMERA.PARALLAX[0] * pk;
+    const oy = this.parallaxSm.y * CAMERA.PARALLAX[1] * pk;
+    this.camera.position.x = damp(this.camera.position.x, this.camPos.x + ox, MOTION.CAM_DAMP, dt);
+    this.camera.position.y = damp(this.camera.position.y, this.camPos.y + oy, MOTION.CAM_DAMP, dt);
+    this.camera.position.z = damp(this.camera.position.z, this.camPos.z, MOTION.CAM_DAMP, dt);
+    this.lookCur.x = damp(this.lookCur.x, this.camLook.x, MOTION.CAM_DAMP, dt);
+    this.lookCur.y = damp(this.lookCur.y, this.camLook.y, MOTION.CAM_DAMP, dt);
+    this.lookCur.z = damp(this.lookCur.z, this.camLook.z, MOTION.CAM_DAMP, dt);
+    this.camera.lookAt(this.lookCur);
 
     this.renderer.render(this.scene, this.camera);
   }

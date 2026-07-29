@@ -1,11 +1,13 @@
 import * as THREE from 'three';
-import gsap from 'gsap';
 import { CAMERA } from '../config.js';
 
 /**
- * Pointer picking: hover highlight + click-to-focus camera flight.
- * A click (distinguished from a drag by travel distance) flies the camera
- * in front of the card; Esc, clicking empty space, or scrolling releases it.
+ * Pointer picking: magnetic hover + click-to-focus.
+ *
+ * No tween library — focusing simply retargets the camera rig
+ * (`app.camPos` / `app.camLook`); the damped chase in App.update turns
+ * that into a smooth, decelerating flight. Esc, clicking empty space or
+ * wheeling releases the focus.
  */
 export class FocusController {
   constructor(app) {
@@ -31,8 +33,8 @@ export class FocusController {
       const travelled = Math.hypot(e.clientX - this._down[0], e.clientY - this._down[1]);
       this._down = null;
       if (travelled > 6) return; // that was a drag
-      const card = this._pick();
-      if (card) this.focusOn(card);
+      const hit = this._pick();
+      if (hit) this.focusOn(hit.object.userData.card);
       else this.release();
     });
 
@@ -44,34 +46,25 @@ export class FocusController {
   _pick() {
     this.raycaster.setFromCamera(this.ndc, this.app.camera);
     const hits = this.raycaster.intersectObjects(this.app.wall.pickables, false);
-    return hits.length ? hits[0].object.userData.card : null;
+    return hits.length ? hits[0] : null;
   }
 
-  /** Per-frame hover raycast (skipped while focused / mid-scroll). */
+  /** Per-frame magnetic hover: card + the UV point under the cursor. */
   updateHover() {
-    const card = this._pick();
-    if (card !== this.app.wall.hovered) {
-      this.app.wall.setHovered(card);
-      this.app.renderer.domElement.style.cursor = card ? 'pointer' : 'grab';
+    const hit = this._pick();
+    const card = hit ? hit.object.userData.card : null;
+    this.app.wall.setHovered(card, hit ? hit.uv : null);
+    const cursor = card ? 'pointer' : 'grab';
+    if (this.app.renderer.domElement.style.cursor !== cursor && !this.app.drag.dragging) {
+      this.app.renderer.domElement.style.cursor = cursor;
     }
   }
 
   focusOn(card) {
-    const app = this.app;
-    app.state.focused = card;
-    app.wall.setFocused(card);
-    app.wall.setHovered(null);
-
-    const worldPos = new THREE.Vector3();
-    card.getWorldPosition(worldPos);
-    const quat = new THREE.Quaternion();
-    card.getWorldQuaternion(quat);
-    const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(quat);
-    const camTo = worldPos.clone().addScaledVector(normal, CAMERA.FOCUS_DISTANCE);
-    camTo.y += 0.15;
-
-    gsap.to(app.camPos, { x: camTo.x, y: camTo.y, z: camTo.z, duration: 1.1, ease: 'power3.inOut', overwrite: 'auto' });
-    gsap.to(app.camLook, { x: worldPos.x, y: worldPos.y, z: worldPos.z, duration: 1.1, ease: 'power3.inOut', overwrite: 'auto' });
+    this.app.state.focused = card;
+    this.app.wall.setFocused(card);
+    this.app.wall.setHovered(null, null);
+    // camera targets are recomputed from the card every frame in App.update
   }
 
   release() {
@@ -79,9 +72,7 @@ export class FocusController {
     if (!app.state.focused) return;
     app.state.focused = null;
     app.wall.setFocused(null);
-    const [px, py, pz] = CAMERA.POSITION;
-    const [lx, ly, lz] = CAMERA.LOOK_AT;
-    gsap.to(app.camPos, { x: px, y: py, z: pz, duration: 1.0, ease: 'power3.inOut', overwrite: 'auto' });
-    gsap.to(app.camLook, { x: lx, y: ly, z: lz, duration: 1.0, ease: 'power3.inOut', overwrite: 'auto' });
+    app.camPos.fromArray(CAMERA.POSITION);
+    app.camLook.fromArray(CAMERA.LOOK_AT);
   }
 }

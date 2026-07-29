@@ -1,25 +1,31 @@
+import { MathUtils } from 'three';
+import { MOTION } from '../config.js';
+
 /**
- * Horizontal drag-to-rotate with inertia.
+ * Sticky drag-to-rotate.
  *
- * Deliberately does NOT hijack the mouse wheel (unlike OrbitControls) —
- * the wheel is reserved for page scrolling, which drives the intro
- * animation. `touch-action: pan-y` keeps vertical swipes scrolling the
- * page on mobile while horizontal swipes rotate the wall.
+ * The pointer writes `target`; the rendered rotation `value` chases it
+ * through exponential damping, so the wall lags a touch behind the hand
+ * (the "sticky" feel) and glides on with inertia after release. Vertical
+ * drag travel is forwarded via `onVertical` (feeds the wheel scroller so
+ * touch users can descend too).
  */
 export class DragRotator {
-  constructor(dom, { sensitivity = 0.0045, enabled = () => true } = {}) {
-    this.offset = 0;      // accumulated rotation (radians)
-    this.velocity = 0;    // rad per frame while flinging
+  constructor(dom, { sensitivity = 0.0045, enabled = () => true, onVertical } = {}) {
+    this.target = 0;
+    this.value = 0;
+    this.velocity = 0;
     this.dragging = false;
     this.enabled = enabled;
 
-    dom.style.touchAction = 'pan-y';
+    dom.style.touchAction = 'none'; // the page never scrolls — all gestures are ours
     dom.style.cursor = 'grab';
 
     dom.addEventListener('pointerdown', (e) => {
       if (!this.enabled() || e.button !== 0) return;
       this.dragging = true;
       this.lastX = e.clientX;
+      this.lastY = e.clientY;
       this.velocity = 0;
       dom.setPointerCapture(e.pointerId);
       dom.style.cursor = 'grabbing';
@@ -27,10 +33,13 @@ export class DragRotator {
 
     dom.addEventListener('pointermove', (e) => {
       if (!this.dragging) return;
-      const delta = (e.clientX - this.lastX) * sensitivity;
+      const dx = (e.clientX - this.lastX) * sensitivity;
+      const dy = e.clientY - this.lastY;
       this.lastX = e.clientX;
-      this.offset += delta;
-      this.velocity = delta;
+      this.lastY = e.clientY;
+      this.target += dx;
+      this.velocity = dx;
+      onVertical?.(dy);
     });
 
     const stop = () => {
@@ -41,11 +50,13 @@ export class DragRotator {
     dom.addEventListener('pointercancel', stop);
   }
 
-  /** Per-frame: apply inertia and optional idle auto-rotation. */
+  /** Per-frame: inertia, idle spin, damped chase. */
   update(dt, { autoSpeed = 0 } = {}) {
-    if (this.dragging) return;
-    this.offset += this.velocity;
-    this.velocity *= Math.pow(0.0025, dt); // frame-rate independent decay
-    this.offset += autoSpeed * dt;
+    if (!this.dragging) {
+      this.target += this.velocity;                 // inertia glide
+      this.velocity *= Math.pow(0.0025, dt);        // frame-rate independent decay
+      this.target += autoSpeed * dt;                // idle auto-rotation
+    }
+    this.value = MathUtils.damp(this.value, this.target, MOTION.DRAG_DAMP, dt);
   }
 }

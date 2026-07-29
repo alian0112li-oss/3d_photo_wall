@@ -22,21 +22,43 @@ export const CAMERA = {
   POSITION: [0, 1.4, 20],
   LOOK_AT: [0, 0, 0],
   FOCUS_DISTANCE: 4.8,  // camera distance from a focused card
-  PARALLAX: [1.4, 0.8], // pointer parallax amplitude (x, y)
+  PARALLAX: [1.6, 0.9], // pointer parallax amplitude (x, y)
 };
 
-/** Scroll-driven intro (mouse wheel -> wall descends & rotates). */
-export const SCROLL = {
-  LENGTH_VH: 280, // scrub distance in vh — keep in sync with #scroll-driver height in CSS
-  TURNS: 1.25,    // wall revolutions over the full scrub
-  DESCEND: 30,    // how far the wall sinks (world units)
+/** Wheel-driven virtual scroll (the page itself never scrolls). */
+export const WHEEL = {
+  SENSITIVITY: 0.00055, // wheel delta -> progress (0..1)
+  TRAVEL: 8.5,          // wall descent over the full range (world units)
+  TURNS: 1.15,          // wall revolutions over the full range
+};
+
+/**
+ * Motion feel — the heart of the "sticky / damped" quality.
+ *
+ * Every input (wheel, drag, pointer) only writes a *target*; the frame
+ * loop chases targets with frame-rate independent exponential damping
+ * (THREE.MathUtils.damp). Higher lambda = tighter follow, lower = heavier.
+ */
+export const MOTION = {
+  WHEEL_DAMP: 3.6,    // virtual scroll smoothing (weighty descent)
+  RUBBER_BAND: 5,     // spring pulling overscroll back into range
+  DRAG_DAMP: 5.0,     // wall lags stickily behind the dragging hand
+  CAM_DAMP: 3.0,      // camera flight & parallax follow
+  POINTER_DAMP: 3.2,  // magnetic pointer follow smoothing
+  CARD_DAMP: 8,       // hover scale / tilt / lift easing
+  MAGNET_YAW: 0.09,   // wall yaw drawn toward the pointer (radians)
+  MAGNET_PITCH: 0.045,// wall pitch drawn toward the pointer (radians)
+  CARD_TILT: 0.22,    // max magnetic tilt of a hovered card (radians)
+  CARD_LIFT: 0.35,    // hovered card pops toward the viewer (world units)
+  FOCUS_LIFT: 0.55,   // focused card lift
+  FLOAT_AMP: 0.05,    // idle per-card floating amplitude
 };
 
 /** Scene atmosphere. */
 export const SCENE = {
   BACKGROUND: 0x0a0b14,
   FOG_DENSITY: 0.022,
-  FLOOR_GAP: 0.7,      // gap between lowest card edge and the mirror floor
+  FLOOR_GAP: 0.7,          // gap between lowest card edge and the mirror floor
   AUTO_ROTATE_SPEED: 0.07, // rad/s idle rotation
 };
 
