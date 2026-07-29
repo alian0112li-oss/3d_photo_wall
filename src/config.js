@@ -11,7 +11,8 @@ export const WALL = {
   RADIUS: 12,       // cylinder radius (larger -> wider horizontal gaps)
   PHOTO_W: 2.4,     // photo width  (world units)
   PHOTO_H: 3.0,     // photo height (matches 600x750 -> 4:5)
-  ROW_GAP: 7.5,     // vertical distance between ring centres
+  ROW_GAP: 9.0,     // vertical distance between ring centres — airy, K95-like spacing
+                    // (gap between rings ≈ 1.8x the card height)
   FRAME_BORDER: 0.24, // extra frame size around the photo
   CARD_DEPTH: 0.14,   // card thickness -> real 3D body, visible from behind
 };
@@ -33,7 +34,7 @@ export const CAMERA = {
  */
 export const WHEEL = {
   SENSITIVITY: 0.00055, // wheel delta -> progress (0..1)
-  TRAVEL: 15,           // total vertical travel (= 2 × WALL.ROW_GAP)
+  TRAVEL: 18,           // total vertical travel (= 2 × WALL.ROW_GAP)
 };
 
 /**
