@@ -2,8 +2,6 @@ import * as THREE from 'three';
 import { WALL, MOTION, imageUrl } from '../config.js';
 import { createFallbackTexture } from './textures.js';
 
-const { damp } = THREE.MathUtils;
-
 /**
  * Cylindrical wall of true-3D photo cards.
  *
@@ -11,18 +9,13 @@ const { damp } = THREE.MathUtils;
  * (the rear plane is rotated 180°, not mirrored), so wherever a card
  * travels you always see the photo right-side-up — there is no "back".
  *
- * Motion: every card owns damped state (scale / lift / magnetic tilt /
- * idle float). Hover only sets *targets*; `update()` chases them each
- * frame with exponential damping, giving the sticky magnetic feel.
+ * The wall is display-only: it takes no pointer input. The only per-card
+ * animation is a gentle idle float on an individual phase.
  */
 export class PhotoWall {
   constructor({ manager, maxAnisotropy = 1 } = {}) {
     this.group = new THREE.Group();
     this.cards = [];
-    this.pickables = []; // photo front meshes used for raycasting
-    this.hovered = null;
-    this.hoverUV = new THREE.Vector2(0.5, 0.5);
-    this.focused = null;
 
     const { TOTAL, COLS, ROWS, RADIUS, PHOTO_W: W, PHOTO_H: H, ROW_GAP, FRAME_BORDER: B, CARD_DEPTH: D } = WALL;
 
@@ -43,20 +36,9 @@ export class PhotoWall {
 
       const card = new THREE.Group();
       const base = new THREE.Vector3(Math.sin(theta) * RADIUS, y, Math.cos(theta) * RADIUS);
-      const dir = new THREE.Vector3(Math.sin(theta), 0, Math.cos(theta)); // outward normal
       card.position.copy(base);
       card.rotation.y = theta; // face outward
-      card.userData = {
-        index: i,
-        theta,
-        base,
-        dir,
-        // damped motion state
-        lift: 0,
-        tiltX: 0,
-        tiltY: 0,
-        floatPhase: i * 0.53,
-      };
+      card.userData = { index: i, base, floatPhase: i * 0.53 };
 
       const frame = new THREE.Mesh(frameGeo, frameMat);
       card.add(frame);
@@ -65,7 +47,6 @@ export class PhotoWall {
       const photoMat = new THREE.MeshBasicMaterial({ color: 0x1a1c2c, toneMapped: false });
       const photo = new THREE.Mesh(photoGeo, photoMat);
       photo.position.z = D / 2 + 0.01;
-      photo.userData.card = card;
       card.add(photo);
 
       // rear face: the same photo, rotated (not mirrored) — the card shows
@@ -73,7 +54,6 @@ export class PhotoWall {
       const back = new THREE.Mesh(photoGeo, photoMat);
       back.position.z = -(D / 2 + 0.01);
       back.rotation.y = Math.PI;
-      back.userData.card = card;
       card.add(back);
 
       loader.load(
@@ -85,7 +65,6 @@ export class PhotoWall {
 
       this.group.add(card);
       this.cards.push(card);
-      this.pickables.push(photo, back); // both faces are hoverable/clickable
     }
   }
 
@@ -97,51 +76,12 @@ export class PhotoWall {
     material.needsUpdate = true;
   }
 
-  /** uv = where the cursor sits on the photo (drives the magnetic tilt). */
-  setHovered(card, uv) {
-    this.hovered = card;
-    if (uv) this.hoverUV.copy(uv);
-  }
-
-  setFocused(card) {
-    this.focused = card;
-  }
-
-  /**
-   * Per-frame damped chase of every card's targets:
-   * scale (hover pop), lift (toward the viewer), magnetic tilt
-   * (card leans toward the cursor), and idle float.
-   */
-  update(dt, t) {
-    const k = MOTION.CARD_DAMP;
+  /** Per-frame: gentle idle float, each card on its own phase. */
+  update(t, reduceMotion = false) {
+    if (reduceMotion) return;
     for (const card of this.cards) {
       const ud = card.userData;
-      const hovered = card === this.hovered;
-      const focused = card === this.focused;
-
-      // targets
-      const scaleT = focused || hovered ? 1.12 : 1;
-      const liftT = focused ? MOTION.FOCUS_LIFT : hovered ? MOTION.CARD_LIFT : 0;
-      // magnetic tilt: the card leans toward the cursor position on its face
-      const tiltXT = hovered ? (this.hoverUV.y - 0.5) * MOTION.CARD_TILT : 0;
-      const tiltYT = hovered ? -(this.hoverUV.x - 0.5) * MOTION.CARD_TILT : 0;
-
-      // damped chase
-      const s = damp(card.scale.x, scaleT, k, dt);
-      card.scale.setScalar(s);
-      ud.lift = damp(ud.lift, liftT, k, dt);
-      ud.tiltX = damp(ud.tiltX, tiltXT, k, dt);
-      ud.tiltY = damp(ud.tiltY, tiltYT, k, dt);
-
-      // idle float — each card breathes on its own phase
-      const floatY = Math.sin(t * 0.9 + ud.floatPhase * 6) * MOTION.FLOAT_AMP;
-
-      card.position.set(
-        ud.base.x + ud.dir.x * ud.lift,
-        ud.base.y + floatY,
-        ud.base.z + ud.dir.z * ud.lift
-      );
-      card.rotation.set(ud.tiltX, ud.theta + ud.tiltY, 0);
+      card.position.y = ud.base.y + Math.sin(t * 0.9 + ud.floatPhase * 6) * MOTION.FLOAT_AMP;
     }
   }
 }

@@ -2,15 +2,19 @@ import { MathUtils } from 'three';
 import { WHEEL, MOTION } from '../config.js';
 
 /**
- * Wheel-driven virtual scroll with rubber-band edges.
+ * Wheel-driven virtual scroll with rubber-band edges — the ONLY input
+ * that moves the wall (mouse movement and clicks are deliberately inert).
  *
  * The wheel never moves the page — it only nudges `target` (0..1).
  * `value` chases `target` through exponential damping every frame, and an
  * additional spring pulls any overscroll back inside the range, which is
- * what produces the sticky, weighty descent instead of a stepped jump.
+ * what produces the sticky, weighty travel instead of a stepped jump.
+ *
+ * On touch devices a vertical swipe acts as the wheel equivalent
+ * (touch events only — mouse drags stay inert).
  */
 export class WheelScroller {
-  constructor({ onInput } = {}) {
+  constructor() {
     this.target = 0;
     this.value = 0;
 
@@ -21,15 +25,22 @@ export class WheelScroller {
         // deltaMode 1 = lines (Firefox); normalize to pixels
         const delta = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
         this.target += delta * WHEEL.SENSITIVITY;
-        onInput?.();
       },
       { passive: false }
     );
-  }
 
-  /** Extra input source (e.g. vertical touch-drag). */
-  nudge(amount) {
-    this.target += amount;
+    // touch: vertical swipe = wheel (natural direction, finger up -> climb)
+    let lastY = null;
+    window.addEventListener('touchstart', (e) => {
+      lastY = e.touches[0].clientY;
+    }, { passive: true });
+    window.addEventListener('touchmove', (e) => {
+      if (lastY === null) return;
+      const y = e.touches[0].clientY;
+      this.target += (lastY - y) * WHEEL.SENSITIVITY * 2.4;
+      lastY = y;
+    }, { passive: true });
+    window.addEventListener('touchend', () => { lastY = null; });
   }
 
   update(dt) {
