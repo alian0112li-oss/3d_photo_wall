@@ -159,10 +159,8 @@ export class PhotoWall {
       const hoverScale = 1 + ud.hoverAmt * (FX.HOVER_SCALE - 1);
       card.scale.setScalar(Math.max(0.0001, ud.entS * hoverScale));
 
-      // drive the shader (velocity distortion only)
-      const u = ud.mat.uniforms;
-      u.uVel.value = vel;
-      u.uTime.value = t;
+      // drive the shader (whole-sheet geometric flex only)
+      ud.mat.uniforms.uVel.value = vel;
     });
 
     if (entrance && allDone) {
