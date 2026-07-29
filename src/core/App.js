@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CAMERA, WHEEL, SCENE, MOTION, SPIN } from '../config.js';
+import { CAMERA, WHEEL, SCENE, MOTION, SPIN, FX } from '../config.js';
 import { createEnvironment } from '../scene/environment.js';
 import { PhotoWall } from '../scene/PhotoWall.js';
 import { WheelScroller } from '../controls/WheelScroller.js';
@@ -120,11 +120,24 @@ export class App {
     this.renderer.setAnimationLoop(() => this.update());
   }
 
-  /** Is the pointer currently over a photo? (speed control only) */
-  _checkHover() {
-    if (this._ndc.x > 1.5) return false; // pointer never entered
+  /**
+   * Hover pick: slows the spin AND feeds the hovered card + cursor UV
+   * to the wall (lens bulge + scale pop). Returns whether a photo is hit.
+   */
+  _updateHover() {
+    if (this._ndc.x > 1.5) {
+      this.wall.setHovered(null, null);
+      return false;
+    }
     this._raycaster.setFromCamera(this._ndc, this.camera);
-    return this._raycaster.intersectObjects(this.wall.pickables, false).length > 0;
+    const hits = this._raycaster.intersectObjects(this.wall.pickables, false);
+    const hit = hits.length ? hits[0] : null;
+    this.wall.setHovered(hit ? hit.object.userData.card : null, hit ? hit.uv : null);
+    const cursor = hit ? 'pointer' : 'default';
+    if (this.renderer.domElement.style.cursor !== cursor) {
+      this.renderer.domElement.style.cursor = cursor;
+    }
+    return !!hit;
   }
 
   update() {
@@ -134,9 +147,15 @@ export class App {
     // wheel chases its target (damped travel + rubber-band edges)
     this.wheel.update(dt);
 
+    // travel velocity (signed, normalized) feeds the distortion shader
+    const rawVel = (this.wheel.value - (this._prevWheel ?? this.wheel.value)) / Math.max(dt, 1e-4);
+    this._prevWheel = this.wheel.value;
+    this._vel = damp(this._vel ?? 0, rawVel, FX.VELOCITY_DAMP, dt);
+    this.wall.setVelocity(THREE.MathUtils.clamp(this._vel * FX.VELOCITY_GAIN, -1, 1));
+
     // spin speed: scrolling > hover > base, blended smoothly (no hard steps);
     // while scrolling the spin direction follows the scroll direction
-    this._hovering = this._checkHover();
+    this._hovering = this._updateHover();
     const tier = this.reduceMotion
       ? 0
       : this.wheel.isActive(SPIN.SCROLL_HOLD)
@@ -153,8 +172,8 @@ export class App {
     const bob = this.reduceMotion ? 0 : Math.sin(t * 0.4) * MOTION.BOB_AMP;
     this.wall.group.position.y = bob + (this.wheel.value - 0.5) * WHEEL.TRAVEL;
 
-    // per-card idle float
-    this.wall.update(t, this.reduceMotion);
+    // per-card: float, entrance, hover lens/scale, shader uniforms
+    this.wall.update(dt, t, this.reduceMotion);
 
     this.renderer.render(this.scene, this.camera);
   }

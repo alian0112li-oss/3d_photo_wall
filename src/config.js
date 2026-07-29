@@ -73,6 +73,19 @@ export const SPIN = {
   SCROLL_HOLD: 450, // ms
 };
 
+/**
+ * Hover / distortion FX (K95-style photo shader) — JS-side tunables.
+ * GLSL-side strengths (lens 0.30, wave 0.035, rgb shift 0.02, flex 0.22)
+ * live commented in scene/photoMaterial.js.
+ */
+export const FX = {
+  HOVER_SCALE: 1.08,   // card pop while hovered
+  HOVER_DAMP: 8,       // hover amount easing (lens + scale)
+  MOUSE_DAMP: 10,      // lens centre chasing the cursor
+  VELOCITY_GAIN: 2.2,  // wheel travel velocity -> shader uVel (-1..1)
+  VELOCITY_DAMP: 5,    // velocity smoothing
+};
+
 /** Scene atmosphere. */
 export const SCENE = {
   BACKGROUND: 0x0a0b14,

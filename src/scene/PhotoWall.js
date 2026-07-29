@@ -1,6 +1,7 @@
 import * as THREE from 'three';
-import { WALL, MOTION, imageUrl } from '../config.js';
+import { WALL, MOTION, FX, imageUrl } from '../config.js';
 import { createFallbackTexture } from './textures.js';
+import { createPhotoMaterial } from './photoMaterial.js';
 
 /** easeOutBack — a small overshoot so each card lands with a pop. */
 const easeOutBack = (t) => {
@@ -15,25 +16,28 @@ const ENTRANCE_DURATION = 0.4;  // s per card pop
 /**
  * Cylindrical wall of true-3D photo cards.
  *
- * Each card = thick box frame (metallic) + the SAME photo on both faces
- * (the rear plane is rotated 180°, not mirrored), so wherever a card
- * travels you always see the photo right-side-up — there is no "back".
+ * Each card = thick box frame (metallic) + the SAME photo shader on both
+ * faces (the rear plane is rotated 180°, not mirrored). The photo faces
+ * run a custom material: hover lens bulge (凹凸镜), velocity-driven sine
+ * stretch + RGB shift, and vertex flex — see photoMaterial.js.
  *
- * The wall never moves in response to the pointer; `pickables` exists
- * only so the app can detect "pointer over a photo" and slow the spin.
- * The only per-card animation is a gentle idle float on an individual phase.
+ * Pointer input never moves the wall; hovering a card slows the spin
+ * (App) and drives that card's lens + scale pop here.
  */
 export class PhotoWall {
   constructor({ manager, maxAnisotropy = 1 } = {}) {
     this.group = new THREE.Group();
     this.cards = [];
-    this.pickables = []; // photo faces, raycast solely for hover speed control
+    this.pickables = []; // photo faces, raycast for hover (speed + lens)
+    this.hovered = null;
+    this.hoverUV = new THREE.Vector2(0.5, 0.5);
+    this._vel = 0; // signed travel velocity (-1..1), set by App
 
     const { TOTAL, COLS, ROWS, RADIUS, PHOTO_W: W, PHOTO_H: H, ROW_GAP, FRAME_BORDER: B, CARD_DEPTH: D } = WALL;
 
-    // shared resources
+    // shared resources — segmented plane so the vertex flex can bend it
     const frameGeo = new THREE.BoxGeometry(W + B, H + B, D);
-    const photoGeo = new THREE.PlaneGeometry(W, H);
+    const photoGeo = new THREE.PlaneGeometry(W, H, 16, 20);
     const frameMat = new THREE.MeshStandardMaterial({ color: 0x11131f, metalness: 0.65, roughness: 0.32 });
 
     const loader = new THREE.TextureLoader(manager);
@@ -50,22 +54,31 @@ export class PhotoWall {
       const base = new THREE.Vector3(Math.sin(theta) * RADIUS, y, Math.cos(theta) * RADIUS);
       card.position.copy(base);
       card.rotation.y = theta; // face outward
-      card.userData = { index: i, base, floatPhase: i * 0.53 };
+      const photoMat = createPhotoMaterial();
+      card.userData = {
+        index: i,
+        base,
+        floatPhase: i * 0.53,
+        mat: photoMat,
+        entS: 1,     // entrance scale (0 while hidden, eased to 1)
+        hoverAmt: 0, // damped hover amount -> lens + scale pop
+        mouse: new THREE.Vector2(0.5, 0.5),
+      };
 
       const frame = new THREE.Mesh(frameGeo, frameMat);
       card.add(frame);
 
-      // photo front — starts as a dark plate, swaps to the texture when loaded
-      const photoMat = new THREE.MeshBasicMaterial({ color: 0x1a1c2c, toneMapped: false });
+      // photo front — dark plate until the texture loads
       const photo = new THREE.Mesh(photoGeo, photoMat);
       photo.position.z = D / 2 + 0.01;
+      photo.userData.card = card;
       card.add(photo);
 
-      // rear face: the same photo, rotated (not mirrored) — the card shows
-      // the photo right-side-up from behind as well
+      // rear face: the same photo, rotated (not mirrored)
       const back = new THREE.Mesh(photoGeo, photoMat);
       back.position.z = -(D / 2 + 0.01);
       back.rotation.y = Math.PI;
+      back.userData.card = card;
       card.add(back);
 
       loader.load(
@@ -84,15 +97,26 @@ export class PhotoWall {
   _applyTexture(material, tex, maxAnisotropy) {
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.anisotropy = maxAnisotropy;
-    material.map = tex;
-    material.color.set(0xffffff);
-    material.needsUpdate = true;
+    material.uniforms.uMap.value = tex;
+    material.uniforms.uHasMap.value = 1;
+  }
+
+  /** uv = cursor position on the hovered face (drives the lens centre). */
+  setHovered(card, uv) {
+    this.hovered = card;
+    if (uv) this.hoverUV.copy(uv);
+  }
+
+  /** Signed, normalized travel velocity from the wheel (-1..1). */
+  setVelocity(v) {
+    this._vel = v;
   }
 
   /** Hide every card (used before the intro's staggered entrance). */
   hideAll() {
     for (const card of this.cards) {
       card.visible = false;
+      card.userData.entS = 0.0001;
       card.scale.setScalar(0.0001);
     }
   }
@@ -102,33 +126,55 @@ export class PhotoWall {
     this.entrance = { t0 };
   }
 
-  /** Per-frame: gentle idle float + (if cued) the staggered entrance. */
-  update(t, reduceMotion = false) {
-    if (!reduceMotion) {
-      for (const card of this.cards) {
-        const ud = card.userData;
+  /** Per-frame: float, entrance, hover lens/scale, shader uniforms. */
+  update(dt, t, reduceMotion = false) {
+    const entrance = this.entrance;
+    let allDone = true;
+    const hoverK = Math.min(1, dt * FX.HOVER_DAMP);
+    const mouseK = Math.min(1, dt * FX.MOUSE_DAMP);
+    const vel = reduceMotion ? 0 : this._vel;
+
+    this.cards.forEach((card, i) => {
+      const ud = card.userData;
+
+      // idle float
+      if (!reduceMotion) {
         card.position.y = ud.base.y + Math.sin(t * 0.9 + ud.floatPhase * 6) * MOTION.FLOAT_AMP;
       }
-    }
 
-    if (this.entrance) {
-      const { t0 } = this.entrance;
-      let allDone = true;
-      this.cards.forEach((card, i) => {
-        const local = t - t0 - i * ENTRANCE_STAGGER;
+      // staggered entrance
+      if (entrance) {
+        const local = t - entrance.t0 - i * ENTRANCE_STAGGER;
         if (local <= 0) {
           allDone = false;
-          return; // not this card's turn yet
+        } else {
+          card.visible = true;
+          const k = Math.min(1, local / ENTRANCE_DURATION);
+          if (k < 1) allDone = false;
+          ud.entS = easeOutBack(k);
         }
-        card.visible = true;
-        const k = Math.min(1, local / ENTRANCE_DURATION);
-        if (k < 1) allDone = false;
-        card.scale.setScalar(Math.max(0.0001, easeOutBack(k)));
-      });
-      if (allDone) {
-        this.entrance = null;
-        for (const card of this.cards) card.scale.setScalar(1);
       }
+
+      // hover: damped amount + cursor-follow lens centre
+      const isHover = card === this.hovered;
+      ud.hoverAmt += ((isHover ? 1 : 0) - ud.hoverAmt) * hoverK;
+      if (isHover) ud.mouse.lerp(this.hoverUV, mouseK);
+
+      // combined scale: entrance pop x hover pop
+      const hoverScale = 1 + ud.hoverAmt * (FX.HOVER_SCALE - 1);
+      card.scale.setScalar(Math.max(0.0001, ud.entS * hoverScale));
+
+      // drive the shader
+      const u = ud.mat.uniforms;
+      u.uHover.value = reduceMotion ? 0 : ud.hoverAmt;
+      u.uMouse.value.copy(ud.mouse);
+      u.uVel.value = vel;
+      u.uTime.value = t;
+    });
+
+    if (entrance && allDone) {
+      this.entrance = null;
+      for (const card of this.cards) card.userData.entS = 1;
     }
   }
 }
