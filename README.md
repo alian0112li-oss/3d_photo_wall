@@ -109,8 +109,8 @@ python scripts/generate_images.py --count 40 --size 600 800
 | --- | --- | --- |
 | `WALL.TOTAL / COLS / ROWS` | 照片数 / 每层列数 / 层数 | `36 / 12 / 3` |
 | `WALL.RADIUS` | 圆柱半径（越大水平间隔越宽） | `12` |
-| `WALL.ROW_GAP` | 层距（越大垂直间隔越宽） | `7.0` |
-| `WHEEL.TRAVEL` | 滚轮全程垂直行程（= 2 × 层距） | `14` |
+| `WALL.ROW_GAP` | 层距（越大垂直间隔越宽） | `7.5` |
+| `WHEEL.TRAVEL` | 滚轮全程垂直行程（= 2 × 层距） | `15` |
 | `CAMERA.POSITION` | 相机位置（z 越小离墙越近） | `[0, 1.4, 19.5]` |
 | `MOTION.WHEEL_DAMP` | 攀升阻尼（越小越沉重） | `5.5` |
 | `SPIN.BASE / HOVER / SCROLL` | 三档自转速度（rad/s） | `0.14 / 0.05 / 0.19` |
