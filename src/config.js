@@ -8,18 +8,20 @@ export const WALL = {
   TOTAL: 30,        // number of photos (matches scripts/generate_images.py)
   COLS: 10,         // cards per ring
   ROWS: 3,          // stacked rings
-  RADIUS: 9.6,      // cylinder radius (larger -> wider horizontal gaps)
+  RADIUS: 12,       // cylinder radius (larger -> wider horizontal gaps)
   PHOTO_W: 2.4,     // photo width  (world units)
   PHOTO_H: 3.0,     // photo height (matches 600x750 -> 4:5)
-  ROW_GAP: 4.4,     // vertical distance between ring centres
+  ROW_GAP: 5.2,     // vertical distance between ring centres
   FRAME_BORDER: 0.24, // extra frame size around the photo
   CARD_DEPTH: 0.14,   // card thickness -> real 3D body, visible from behind
 };
 
 /** Camera rig. */
+// camera sits just 7.5 units from the front cards (19.5 - RADIUS 12),
+// so the wall fills the view while the big cylinder wraps around it
 export const CAMERA = {
   FOV: 52,
-  POSITION: [0, 1.4, 21.5],
+  POSITION: [0, 1.4, 19.5],
   LOOK_AT: [0, 0, 0],
   FOCUS_DISTANCE: 4.8,  // camera distance from a focused card
   PARALLAX: [1.0, 0.6], // pointer parallax amplitude (x, y)
@@ -33,7 +35,7 @@ export const CAMERA = {
  */
 export const WHEEL = {
   SENSITIVITY: 0.00055, // wheel delta -> progress (0..1)
-  TRAVEL: 8.8,          // total vertical travel (= 2 × WALL.ROW_GAP)
+  TRAVEL: 10.4,         // total vertical travel (= 2 × WALL.ROW_GAP)
   TURNS: 1.0,           // wall revolutions over the full range
 };
 
@@ -63,7 +65,7 @@ export const MOTION = {
 /** Scene atmosphere. */
 export const SCENE = {
   BACKGROUND: 0x0a0b14,
-  FOG_DENSITY: 0.02, // light enough that far-side photos stay readable
+  FOG_DENSITY: 0.017, // light enough that far-side photos stay readable
   FLOOR_GAP: 0.7,          // gap between lowest card edge and the mirror floor
   AUTO_ROTATE_SPEED: 0.045, // rad/s idle rotation (slow enough to feel grounded)
 };
