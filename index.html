@@ -3,442 +3,121 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>3D 照片墙 · Three.js Photo Wall</title>
-  <style>
-    :root {
-      --bg-0: #0a0b14;
-      --bg-1: #14162a;
-      --fg: #eef1ff;
-      --muted: #9aa0c3;
-      --accent: #7c8cff;
-    }
-    * { box-sizing: border-box; }
-    html, body { margin: 0; height: 100%; overflow: hidden; }
-    body {
-      background: radial-gradient(1200px 800px at 50% 30%, var(--bg-1), var(--bg-0) 70%);
-      color: var(--fg);
-      font-family: "Segoe UI", system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
-      -webkit-font-smoothing: antialiased;
-    }
-    #app { position: fixed; inset: 0; }
-    canvas { display: block; }
-
-    /* ---------- HUD ---------- */
-    .hud { position: fixed; z-index: 10; pointer-events: none; }
-    .hud * { pointer-events: auto; }
-
-    #title {
-      top: 26px; left: 28px;
-    }
-    #title h1 {
-      margin: 0;
-      font-size: 22px;
-      font-weight: 700;
-      letter-spacing: .04em;
-    }
-    #title p {
-      margin: 6px 0 0;
-      font-size: 13px;
-      color: var(--muted);
-      max-width: 320px;
-      line-height: 1.5;
-    }
-
-    #controls {
-      bottom: 24px; left: 50%; transform: translateX(-50%);
-      display: flex; gap: 10px; align-items: center;
-      background: rgba(20, 22, 42, .55);
-      border: 1px solid rgba(255, 255, 255, .08);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      padding: 8px 10px;
-      border-radius: 999px;
-      box-shadow: 0 10px 40px rgba(0, 0, 0, .45);
-    }
-    .btn {
-      appearance: none; border: 0; cursor: pointer;
-      color: var(--fg);
-      background: rgba(255, 255, 255, .06);
-      border: 1px solid rgba(255, 255, 255, .08);
-      font-size: 13px; font-weight: 600;
-      padding: 9px 16px; border-radius: 999px;
-      transition: background .18s ease, transform .1s ease, border-color .18s ease;
-      white-space: nowrap;
-    }
-    .btn:hover { background: rgba(124, 140, 255, .22); border-color: rgba(124, 140, 255, .5); }
-    .btn:active { transform: scale(.96); }
-    .btn.active { background: rgba(124, 140, 255, .35); border-color: rgba(124, 140, 255, .7); }
-
-    #hint {
-      bottom: 84px; left: 50%; transform: translateX(-50%);
-      font-size: 12.5px; color: var(--muted);
-      text-align: center; width: max-content; max-width: 92vw;
-    }
-
-    /* ---------- loading overlay ---------- */
-    #loader {
-      position: fixed; inset: 0; z-index: 50;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      background: radial-gradient(900px 600px at 50% 40%, var(--bg-1), var(--bg-0) 75%);
-      transition: opacity .6s ease;
-    }
-    #loader.hidden { opacity: 0; pointer-events: none; }
-    .spinner {
-      width: 46px; height: 46px; border-radius: 50%;
-      border: 3px solid rgba(255, 255, 255, .12);
-      border-top-color: var(--accent);
-      animation: spin 1s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    #loader .label { margin-top: 18px; font-size: 13px; color: var(--muted); letter-spacing: .05em; }
-    #bar { margin-top: 12px; width: 200px; height: 4px; border-radius: 4px; background: rgba(255, 255, 255, .1); overflow: hidden; }
-    #bar > span { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), #b3a4ff); transition: width .2s ease; }
-
-    @media (max-width: 640px) {
-      #title h1 { font-size: 18px; }
-      #title p { display: none; }
-      #hint { bottom: 78px; font-size: 11.5px; }
-    }
-  </style>
+  <meta name="description" content="企业级 3D 照片墙开屏 — Three.js × GSAP ScrollTrigger × Vite" />
+  <meta name="theme-color" content="#0a0b14" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📷</text></svg>" />
+  <title>3D 照片墙 · 企业级开屏 Demo</title>
 </head>
 <body>
-  <div id="app"></div>
+  <!-- WebGL canvas host (fixed, behind everything) -->
+  <div id="gl" aria-hidden="true"></div>
+  <div class="vignette" aria-hidden="true"></div>
 
-  <div class="hud" id="title">
-    <h1>3D 照片墙</h1>
-    <p>拖拽旋转视角 · 滚轮缩放 · 点击照片聚焦查看 · 按 Esc 复位。占位图片由 Python 脚本生成，替换 <code>images/</code> 即可换成真实照片。</p>
-  </div>
+  <!-- Fixed site header -->
+  <header class="site-header" id="site-header">
+    <a class="brand" href="#top">
+      <span class="brand-mark">◈</span>
+      <span class="brand-name">3D&nbsp;WALL</span>
+    </a>
+    <nav class="site-nav" aria-label="主导航">
+      <a href="#features">核心特性</a>
+      <a href="#about">关于项目</a>
+      <a href="https://github.com/alian0112li-oss/3d_photo_wall" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+    <a class="btn btn-primary btn-sm" href="#features">开始探索</a>
+  </header>
 
-  <div class="hud" id="hint">拖拽旋转 · 滚轮缩放 · 点击照片聚焦 · Esc 复位</div>
+  <!-- Hero overlay (fixed, fades out on scroll) -->
+  <section class="hero" id="hero" aria-label="开屏">
+    <div class="hero-inner">
+      <p class="eyebrow">THREE.JS × GSAP SCROLLTRIGGER</p>
+      <h1>让品牌故事<br />在 <em>3D 空间</em>中展开</h1>
+      <p class="hero-sub">
+        沉浸式照片墙开屏 · 拖拽环视 · 点击聚焦 · 向下滚动，见证整面墙旋转沉入页面深处
+      </p>
+      <div class="hero-actions">
+        <button class="btn btn-primary" id="cta-explore" type="button">向下探索 ↓</button>
+        <a class="btn btn-ghost" href="https://github.com/alian0112li-oss/3d_photo_wall" target="_blank" rel="noopener">查看源码</a>
+      </div>
+    </div>
+    <div class="scroll-hint" aria-hidden="true">
+      <span class="mouse"><span class="wheel"></span></span>
+      <span class="scroll-hint-label">滚动</span>
+    </div>
+  </section>
 
-  <div class="hud" id="controls">
-    <button class="btn active" id="btn-rotate">⏸ 自动旋转</button>
-    <button class="btn" id="btn-reset">↺ 复位视角</button>
-  </div>
+  <!-- Invisible scroll driver: its height defines the scrub distance -->
+  <div id="scroll-driver" aria-hidden="true"></div>
 
-  <div id="loader">
-    <div class="spinner"></div>
+  <!-- Page content revealed after the 3D intro -->
+  <main class="content" id="content">
+    <section class="section" id="features">
+      <div class="section-inner">
+        <p class="eyebrow reveal">FEATURES · 核心特性</p>
+        <h2 class="reveal">为官网开屏而生的<br />工程化 3D 方案</h2>
+        <div class="card-grid">
+          <article class="card reveal">
+            <div class="card-icon">🧊</div>
+            <h3>真正的 3D 卡片</h3>
+            <p>每张照片都是有厚度的立体卡片：金属质感边框、品牌化背板，任何角度观看都完整可信。</p>
+          </article>
+          <article class="card reveal">
+            <div class="card-icon">🌀</div>
+            <h3>滚动叙事</h3>
+            <p>GSAP ScrollTrigger 将滚轮映射为镜头语言 — 照片墙随滚动旋转下沉，内容随之浮现。</p>
+          </article>
+          <article class="card reveal">
+            <div class="card-icon">🏗️</div>
+            <h3>企业级工程化</h3>
+            <p>Vite 构建、模块化分层（scene / controls / scroll）、CI 自动部署 GitHub Pages。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="about">
+      <div class="section-inner section-split">
+        <div class="split-text">
+          <p class="eyebrow reveal">ABOUT · 关于项目</p>
+          <h2 class="reveal">从占位 Demo 到<br />生产级开屏</h2>
+          <p class="reveal">
+            当前照片由 Python 脚本批量生成占位图，替换 <code>public/images/</code>
+            目录即可无缝切换为真实品牌素材。所有排布参数（列数、层数、半径、
+            滚动圈数与下沉深度）集中在 <code>src/config.js</code> 一处调整。
+          </p>
+          <p class="reveal">
+            交互层与渲染层解耦：拖拽惯性、点击聚焦、视差跟随、滚动驱动
+            各自独立成模块，可按需裁剪或扩展。
+          </p>
+        </div>
+        <div class="stat-grid">
+          <div class="stat reveal"><strong>30</strong><span>立体照片卡片</span></div>
+          <div class="stat reveal"><strong>60fps</strong><span>渲染目标帧率</span></div>
+          <div class="stat reveal"><strong>3 层</strong><span>环形阵列结构</span></div>
+          <div class="stat reveal"><strong>0 配置</strong><span>CI 自动部署</span></div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="site-footer">
+      <span>© 2026 3D Photo Wall</span>
+      <span class="footer-dim">Three.js · GSAP ScrollTrigger · Vite</span>
+    </footer>
+  </main>
+
+  <!-- Loading overlay -->
+  <div id="loader" role="status" aria-live="polite">
+    <div class="spinner" aria-hidden="true"></div>
     <div class="label" id="loader-label">正在加载照片墙…</div>
-    <div id="bar"><span id="bar-fill"></span></div>
+    <div id="bar" aria-hidden="true"><span id="bar-fill"></span></div>
   </div>
 
-  <script type="importmap">
-  {
-    "imports": {
-      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-    }
-  }
-  </script>
+  <noscript>
+    <div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0a0b14;color:#eef1ff;z-index:99;font-family:sans-serif;">
+      本页面需要启用 JavaScript 才能展示 3D 照片墙。
+    </div>
+  </noscript>
 
-  <script type="module">
-    import * as THREE from 'three';
-    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-    import { Reflector } from 'three/addons/objects/Reflector.js';
-
-    // ---------------------------------------------------------------------
-    // Config
-    // ---------------------------------------------------------------------
-    const TOTAL   = 30;          // number of photos (matches generate_images.py)
-    const COLS    = 10;          // photos per ring
-    const ROWS    = 3;           // number of stacked rings
-    const RADIUS  = 8.2;         // cylinder radius
-    const PW      = 2.4;         // photo width  (world units)
-    const PH      = 3.0;         // photo height (matches 600x750 -> 4:5)
-    const ROW_GAP = 3.65;        // vertical distance between ring centres
-    const IMG_URL = i => `images/photo_${String(i + 1).padStart(2, '0')}.png`;
-
-    // ---------------------------------------------------------------------
-    // Renderer / scene / camera
-    // ---------------------------------------------------------------------
-    const app = document.getElementById('app');
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.05;
-    app.appendChild(renderer.domElement);
-
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0a0b14);
-    scene.fog = new THREE.FogExp2(0x0a0b14, 0.026);
-
-    const camera = new THREE.PerspectiveCamera(52, window.innerWidth / window.innerHeight, 0.1, 200);
-    const HOME_POS = new THREE.Vector3(0, 1.5, 20);
-    const HOME_TARGET = new THREE.Vector3(0, 0, 0);
-    camera.position.copy(HOME_POS);
-
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.06;
-    controls.autoRotate = true;
-    controls.autoRotateSpeed = 0.6;
-    controls.minDistance = 5;
-    controls.maxDistance = 34;
-    controls.maxPolarAngle = Math.PI * 0.92;
-    controls.target.copy(HOME_TARGET);
-
-    // ---------------------------------------------------------------------
-    // Lights
-    // ---------------------------------------------------------------------
-    scene.add(new THREE.AmbientLight(0xffffff, 0.55));
-
-    const key = new THREE.DirectionalLight(0xffffff, 1.1);
-    key.position.set(6, 12, 10);
-    scene.add(key);
-
-    const rim1 = new THREE.PointLight(0x6f7bff, 60, 60);
-    rim1.position.set(-14, 6, -6);
-    scene.add(rim1);
-
-    const rim2 = new THREE.PointLight(0xff7bd0, 45, 60);
-    rim2.position.set(14, -2, 8);
-    scene.add(rim2);
-
-    // ---------------------------------------------------------------------
-    // Reflective floor
-    // ---------------------------------------------------------------------
-    const floorY = -(ROWS - 1) / 2 * ROW_GAP - PH / 2 - 0.6;
-    const mirror = new Reflector(new THREE.CircleGeometry(40, 80), {
-      textureWidth: window.innerWidth * Math.min(window.devicePixelRatio, 2),
-      textureHeight: window.innerHeight * Math.min(window.devicePixelRatio, 2),
-      color: 0x0e1020,
-    });
-    mirror.rotation.x = -Math.PI / 2;
-    mirror.position.y = floorY;
-    scene.add(mirror);
-
-    // faint grid tint over the mirror for depth
-    const grid = new THREE.GridHelper(80, 40, 0x2a2e52, 0x181b32);
-    grid.material.transparent = true;
-    grid.material.opacity = 0.25;
-    grid.position.y = floorY + 0.01;
-    scene.add(grid);
-
-    // ---------------------------------------------------------------------
-    // Particles (soft atmosphere)
-    // ---------------------------------------------------------------------
-    (function addParticles() {
-      const N = 260;
-      const g = new THREE.BufferGeometry();
-      const pos = new Float32Array(N * 3);
-      for (let i = 0; i < N; i++) {
-        const r = 12 + Math.random() * 26;
-        const a = Math.random() * Math.PI * 2;
-        pos[i * 3]     = Math.cos(a) * r;
-        pos[i * 3 + 1] = (Math.random() - 0.5) * 26;
-        pos[i * 3 + 2] = Math.sin(a) * r;
-      }
-      g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-      const m = new THREE.PointsMaterial({ color: 0x9aa4ff, size: 0.06, transparent: true, opacity: 0.55, depthWrite: false });
-      scene.add(new THREE.Points(g, m));
-    })();
-
-    // ---------------------------------------------------------------------
-    // Photo wall
-    // ---------------------------------------------------------------------
-    const wall = new THREE.Group();
-    scene.add(wall);
-
-    const photoGeo = new THREE.PlaneGeometry(PW, PH);
-    const frameGeo = new THREE.PlaneGeometry(PW + 0.22, PH + 0.22);
-    const frameMat = new THREE.MeshStandardMaterial({ color: 0x0f1120, metalness: 0.6, roughness: 0.35 });
-
-    const photos = [];               // interactive meshes
-    const maxAniso = renderer.capabilities.getMaxAnisotropy();
-
-    function fallbackTexture(i) {
-      const c = document.createElement('canvas');
-      c.width = 300; c.height = 375;
-      const ctx = c.getContext('2d');
-      const hue = (30 + i * 222) % 360;
-      const grad = ctx.createLinearGradient(0, 0, 300, 375);
-      grad.addColorStop(0, `hsl(${hue},60%,58%)`);
-      grad.addColorStop(1, `hsl(${(hue + 40) % 360},70%,32%)`);
-      ctx.fillStyle = grad; ctx.fillRect(0, 0, 300, 375);
-      ctx.fillStyle = '#fff'; ctx.font = 'bold 120px Segoe UI, sans-serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(String(i + 1).padStart(2, '0'), 150, 180);
-      const t = new THREE.CanvasTexture(c);
-      t.colorSpace = THREE.SRGBColorSpace;
-      return t;
-    }
-
-    const manager = new THREE.LoadingManager();
-    const loader = new THREE.TextureLoader(manager);
-
-    const angleStep = (Math.PI * 2) / COLS;
-    for (let i = 0; i < TOTAL; i++) {
-      const col = i % COLS;
-      const row = Math.floor(i / COLS);
-      const theta = col * angleStep;
-      const y = ((ROWS - 1) / 2 - row) * ROW_GAP;
-
-      const group = new THREE.Group();
-      group.position.set(Math.sin(theta) * RADIUS, y, Math.cos(theta) * RADIUS);
-      group.rotation.y = theta;                       // face outward
-      group.userData = { theta, baseY: y, index: i };
-
-      const frame = new THREE.Mesh(frameGeo, frameMat);
-      group.add(frame);
-
-      const mat = new THREE.MeshBasicMaterial({ color: 0x808080, toneMapped: false });
-      const photo = new THREE.Mesh(photoGeo, mat);
-      photo.position.z = 0.03;
-      group.add(photo);
-
-      loader.load(
-        IMG_URL(i),
-        (tex) => { tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = maxAniso; mat.map = tex; mat.color.set(0xffffff); mat.needsUpdate = true; },
-        undefined,
-        () => { const tex = fallbackTexture(i); tex.anisotropy = maxAniso; mat.map = tex; mat.color.set(0xffffff); mat.needsUpdate = true; }
-      );
-
-      group.userData.photo = photo;
-      photos.push(group);
-      wall.add(group);
-    }
-
-    // ---------------------------------------------------------------------
-    // Loading manager -> overlay
-    // ---------------------------------------------------------------------
-    const loaderEl = document.getElementById('loader');
-    const barFill  = document.getElementById('bar-fill');
-    const loaderLabel = document.getElementById('loader-label');
-    manager.onProgress = (_u, loaded, total) => {
-      barFill.style.width = Math.round((loaded / total) * 100) + '%';
-      loaderLabel.textContent = `正在加载照片 ${loaded}/${total}…`;
-    };
-    manager.onLoad = () => { loaderEl.classList.add('hidden'); };
-    // safety: never leave the overlay stuck if nothing loads
-    setTimeout(() => loaderEl.classList.add('hidden'), 8000);
-
-    // ---------------------------------------------------------------------
-    // Interaction: hover highlight + click to focus
-    // ---------------------------------------------------------------------
-    const raycaster = new THREE.Raycaster();
-    const pointer = new THREE.Vector2();
-    let hovered = null;
-    let focused = null;                // focused group or null
-    let dragging = false;
-
-    const desiredPos = new THREE.Vector3();
-    const desiredTarget = new THREE.Vector3();
-    let animating = false;
-
-    function setPointer(e) {
-      pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
-      pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
-    }
-
-    function pick() {
-      raycaster.setFromCamera(pointer, camera);
-      const hits = raycaster.intersectObjects(photos.map(p => p.userData.photo), false);
-      return hits.length ? hits[0].object.parent : null;
-    }
-
-    renderer.domElement.addEventListener('pointermove', (e) => {
-      setPointer(e);
-      if (dragging) return;
-      const g = pick();
-      if (g !== hovered) hovered = g;
-      renderer.domElement.style.cursor = g ? 'pointer' : 'grab';
-    });
-
-    controls.addEventListener('start', () => { dragging = true; animating = false; });
-    controls.addEventListener('end', () => { dragging = false; });
-
-    // distinguish a click from a drag
-    let downXY = null;
-    renderer.domElement.addEventListener('pointerdown', (e) => { downXY = [e.clientX, e.clientY]; });
-    renderer.domElement.addEventListener('pointerup', (e) => {
-      if (!downXY) return;
-      const moved = Math.hypot(e.clientX - downXY[0], e.clientY - downXY[1]);
-      downXY = null;
-      if (moved > 6) return;           // was a drag, not a click
-      setPointer(e);
-      const g = pick();
-      if (g) focusOn(g); else resetView();
-    });
-
-    function focusOn(group) {
-      focused = group;
-      controls.autoRotate = false;
-      updateRotateBtn();
-      const worldPos = new THREE.Vector3();
-      group.getWorldPosition(worldPos);
-      const normal = new THREE.Vector3(Math.sin(group.userData.theta), 0, Math.cos(group.userData.theta));
-      desiredTarget.copy(worldPos);
-      desiredPos.copy(worldPos).addScaledVector(normal, 6.2).setY(worldPos.y + 0.4);
-      animating = true;
-    }
-
-    function resetView() {
-      focused = null;
-      desiredPos.copy(HOME_POS);
-      desiredTarget.copy(HOME_TARGET);
-      animating = true;
-    }
-
-    window.addEventListener('keydown', (e) => { if (e.key === 'Escape') resetView(); });
-
-    // ---------------------------------------------------------------------
-    // UI buttons
-    // ---------------------------------------------------------------------
-    const btnRotate = document.getElementById('btn-rotate');
-    const btnReset  = document.getElementById('btn-reset');
-    function updateRotateBtn() {
-      btnRotate.classList.toggle('active', controls.autoRotate);
-      btnRotate.textContent = (controls.autoRotate ? '⏸' : '▶') + ' 自动旋转';
-    }
-    btnRotate.addEventListener('click', () => {
-      controls.autoRotate = !controls.autoRotate;
-      if (controls.autoRotate) focused = null;
-      updateRotateBtn();
-    });
-    btnReset.addEventListener('click', () => { controls.autoRotate = true; updateRotateBtn(); resetView(); });
-
-    // ---------------------------------------------------------------------
-    // Resize
-    // ---------------------------------------------------------------------
-    window.addEventListener('resize', () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    });
-
-    // ---------------------------------------------------------------------
-    // Animation loop
-    // ---------------------------------------------------------------------
-    const clock = new THREE.Clock();
-    function animate() {
-      requestAnimationFrame(animate);
-      const t = clock.getElapsedTime();
-
-      // gentle vertical bob of the whole wall
-      wall.position.y = Math.sin(t * 0.4) * 0.18;
-
-      // hover / focus scaling per photo
-      for (const g of photos) {
-        const want = (g === hovered || g === focused) ? 1.14 : 1.0;
-        const s = g.scale.x + (want - g.scale.x) * 0.15;
-        g.scale.set(s, s, s);
-      }
-
-      // smooth camera fly to focus / home
-      if (animating) {
-        camera.position.lerp(desiredPos, 0.06);
-        controls.target.lerp(desiredTarget, 0.08);
-        if (camera.position.distanceTo(desiredPos) < 0.05) animating = false;
-      }
-
-      controls.update();
-      renderer.render(scene, camera);
-    }
-    animate();
-    updateRotateBtn();
-  </script>
+  <script type="module" src="/src/main.js"></script>
 </body>
 </html>

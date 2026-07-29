@@ -5,9 +5,9 @@ Placeholder image generator for the 3D photo wall.
 Generates a set of colourful, distinct placeholder "photos" so the Three.js
 photo wall has something to display before real images are dropped in.
 
-Usage:
-    py generate_images.py            # generate the default 30 images
-    py generate_images.py --count 40 --size 600 800
+Usage (run from repo root):
+    python scripts/generate_images.py            # generate the default 30 images
+    python scripts/generate_images.py --count 40 --size 600 800
 
 Requires: Pillow  ->  py -m pip install pillow
 """
@@ -19,7 +19,8 @@ import os
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "images")
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+OUT_DIR = os.path.join(ROOT_DIR, "public", "images")
 
 # Golden-ratio conjugate: stepping the hue by this gives pleasantly spread,
 # never-repeating colours across the whole set.

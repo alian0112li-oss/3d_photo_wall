@@ -1,0 +1,23 @@
+{
+  "name": "3d-photo-wall",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Enterprise-grade 3D photo wall hero section built with Three.js, GSAP ScrollTrigger and Vite",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "images": "python scripts/generate_images.py"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "gsap": "^3.12.5",
+    "three": "^0.166.1"
+  },
+  "devDependencies": {
+    "vite": "^5.4.8"
+  }
+}
