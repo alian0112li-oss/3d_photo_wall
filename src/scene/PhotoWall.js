@@ -16,14 +16,15 @@ const ENTRANCE_DURATION = 0.4;  // s per card pop
 /**
  * Cylindrical wall of true-3D photo cards.
  *
- * Each card = a thin edge box (exactly the photo's size — no dark rim
- * around the image) + the SAME photo shader on both faces (the rear
- * plane is rotated 180°, not mirrored). The photo faces run a custom
- * material: velocity-driven sine stretch + RGB shift and vertex flex —
- * see photoMaterial.js.
+ * Each card = ONE curved photo sheet (柱面抛物面: a segmented plane bent
+ * z = -CURVE·x², hugging the wall's cylinder) — no frame box, no dark
+ * geometry anywhere. The sheet is double-sided; the shader flips U on
+ * the rear face so the photo reads right-side-up from behind, and adds
+ * the velocity-driven sine stretch + RGB shift + vertex flex — see
+ * photoMaterial.js.
  *
  * Pointer input never moves the wall; hovering a card slows the spin
- * (App) and gives it a gentle scale pop here.
+ * (App) and gives the whole card a gentle, uniform scale pop here.
  */
 export class PhotoWall {
   constructor({ manager, maxAnisotropy = 1 } = {}) {
@@ -34,12 +35,19 @@ export class PhotoWall {
     this.hoverUV = new THREE.Vector2(0.5, 0.5);
     this._vel = 0; // signed travel velocity (-1..1), set by App
 
-    const { TOTAL, COLS, ROWS, RADIUS, PHOTO_W: W, PHOTO_H: H, ROW_GAP, FRAME_BORDER: B, CARD_DEPTH: D } = WALL;
+    const { TOTAL, COLS, ROWS, RADIUS, PHOTO_W: W, PHOTO_H: H, ROW_GAP, CURVE } = WALL;
 
-    // shared resources — segmented plane so the vertex flex can bend it
-    const frameGeo = new THREE.BoxGeometry(W + B, H + B, D);
-    const photoGeo = new THREE.PlaneGeometry(W, H, 16, 20);
-    const frameMat = new THREE.MeshStandardMaterial({ color: 0x11131f, metalness: 0.65, roughness: 0.32 });
+    // shared curved sheet (柱面抛物面): segmented plane bent along X,
+    // z = -CURVE·x² — also gives the vertex flex something to bend
+    const photoGeo = new THREE.PlaneGeometry(W, H, 32, 20);
+    {
+      const pos = photoGeo.attributes.position;
+      for (let v = 0; v < pos.count; v++) {
+        const x = pos.getX(v);
+        pos.setZ(v, -CURVE * x * x);
+      }
+      pos.needsUpdate = true;
+    }
 
     const loader = new THREE.TextureLoader(manager);
     const step = (Math.PI * 2) / COLS;
@@ -65,21 +73,10 @@ export class PhotoWall {
         hoverAmt: 0, // damped hover amount -> gentle scale pop
       };
 
-      const frame = new THREE.Mesh(frameGeo, frameMat);
-      card.add(frame);
-
-      // photo front — dark plate until the texture loads
-      const photo = new THREE.Mesh(photoGeo, photoMat);
-      photo.position.z = D / 2 + 0.01;
-      photo.userData.card = card;
-      card.add(photo);
-
-      // rear face: the same photo, rotated (not mirrored)
-      const back = new THREE.Mesh(photoGeo, photoMat);
-      back.position.z = -(D / 2 + 0.01);
-      back.rotation.y = Math.PI;
-      back.userData.card = card;
-      card.add(back);
+      // the single curved sheet — photo on both faces, nothing else
+      const sheet = new THREE.Mesh(photoGeo, photoMat);
+      sheet.userData.card = card;
+      card.add(sheet);
 
       loader.load(
         imageUrl(i),
@@ -90,7 +87,7 @@ export class PhotoWall {
 
       this.group.add(card);
       this.cards.push(card);
-      this.pickables.push(photo, back);
+      this.pickables.push(sheet);
     }
   }
 

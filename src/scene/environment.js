@@ -28,7 +28,7 @@ export function createEnvironment({ scene, rig }) {
   // (the wall group begins offset -TRAVEL/2 and climbs as the user scrolls)
   const floorY =
     -(((WALL.ROWS - 1) / 2) * WALL.ROW_GAP +
-      (WALL.PHOTO_H + WALL.FRAME_BORDER) / 2 +
+      WALL.PHOTO_H / 2 +
       SCENE.FLOOR_GAP +
       WHEEL.TRAVEL / 2);
 

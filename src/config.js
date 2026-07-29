@@ -13,8 +13,8 @@ export const WALL = {
   PHOTO_H: 3.0,     // photo height (matches 600x750 -> 4:5)
   ROW_GAP: 9.0,     // vertical distance between ring centres — airy, K95-like spacing
                     // (gap between rings ≈ 1.8x the card height)
-  FRAME_BORDER: 0,    // no dark rim around the photo (edge box = photo size)
-  CARD_DEPTH: 0.14,   // card thickness -> real 3D body, visible from behind
+  CURVE: 0.12,      // 柱面抛物面 curvature: sheet bends z = -CURVE·x²
+                    // (edges drop ~0.17 at this width — a gentle cylinder hug)
 };
 
 // camera sits just 7.5 units from the front cards (19.5 - RADIUS 12),

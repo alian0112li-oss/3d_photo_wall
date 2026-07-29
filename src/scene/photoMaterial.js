@@ -36,7 +36,12 @@ const FRAGMENT = /* glsl */ `
   varying vec2 vUv;
 
   void main() {
-    vec2 uv = vUv;
+    // a still-loading photo must never show as a dark block
+    if (uHasMap < 0.5) discard;
+
+    // single double-sided sheet: flip U on the rear face so the photo
+    // reads right-side-up (not mirrored) from behind
+    vec2 uv = gl_FrontFacing ? vUv : vec2(1.0 - vUv.x, vUv.y);
 
     // --- travel wave: sine UV stretch, amount follows the velocity ---
     uv.y += sin(uv.x * 8.0 + uTime * 0.8) * uVel * 0.035;
@@ -44,17 +49,11 @@ const FRAGMENT = /* glsl */ `
     // --- RGB shift: channels part ways with speed ---
     float shift = uVel * 0.02;
 
-    vec3 col;
-    if (uHasMap > 0.5) {
-      float cr = texture2D(uMap, uv + vec2(shift, 0.0)).r;
-      float cg = texture2D(uMap, uv).g;
-      float cb = texture2D(uMap, uv - vec2(shift, 0.0)).b;
-      col = vec3(cr, cg, cb);
-    } else {
-      col = vec3(0.008, 0.009, 0.022); // dark plate until the photo lands
-    }
+    float cr = texture2D(uMap, uv + vec2(shift, 0.0)).r;
+    float cg = texture2D(uMap, uv).g;
+    float cb = texture2D(uMap, uv - vec2(shift, 0.0)).b;
 
-    gl_FragColor = vec4(col, 1.0);
+    gl_FragColor = vec4(cr, cg, cb, 1.0);
     #include <colorspace_fragment>
   }
 `;
@@ -64,6 +63,7 @@ export function createPhotoMaterial() {
   return new THREE.ShaderMaterial({
     vertexShader: VERTEX,
     fragmentShader: FRAGMENT,
+    side: THREE.DoubleSide, // one curved sheet shows the photo on both faces
     uniforms: {
       uMap: { value: null },
       uHasMap: { value: 0 },
